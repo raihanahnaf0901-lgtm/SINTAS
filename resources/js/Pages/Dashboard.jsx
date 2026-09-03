@@ -21,9 +21,36 @@ const activities = {
 };
 
 const subjects = [
-    { name: 'Matematika', tasks: 3, icon: 'percent', color: 'bg-[#8C52FF]' },
-    { name: 'B. Indonesia', tasks: 1, icon: 'book-open', color: 'bg-[#FF7A30]' },
-    { name: 'Fisika', tasks: 2, icon: 'atom', color: 'bg-sky-400' },
+    {
+        name: 'Matematika',
+        tasks: 3,
+        icon: 'calculator',
+        color: 'bg-gradient-to-br from-purple-500 to-purple-600',
+    },
+    {
+        name: 'Bahasa Indonesia',
+        tasks: 1,
+        icon: 'book-open',
+        color: 'bg-gradient-to-br from-orange-400 to-orange-600',
+    },
+    {
+        name: 'Fisika',
+        tasks: 2,
+        icon: 'atom',
+        color: 'bg-gradient-to-br from-sky-400 to-sky-600',
+    },
+    {
+        name: 'Biologi',
+        tasks: 2,
+        icon: 'dna',
+        color: 'bg-gradient-to-br from-green-400 to-green-600',
+    },
+    {
+        name: 'Sejarah',
+        tasks: 1,
+        icon: 'landmark',
+        color: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
+    },
 ];
 
 const tabs = [
@@ -72,11 +99,28 @@ function Icon({ name, className = 'h-5 w-5' }) {
                 <rect width="18" height="18" x="3" y="4" rx="2" />
             </>
         ),
+        calculator: (
+            <>
+                <rect x="4" y="2" width="16" height="20" rx="2" />
+                <path d="M8 6h8M8 10h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+            </>
+        ),
         chevron: <path d="m9 18 6-6-6-6" />,
+        dna: (
+            <>
+                <path d="M2 15c6.7 0 13.3-6 20-6M2 9c6.7 0 13.3 6 20 6" />
+                <path d="M6 8v8M10 9.5v5M14 9.5v5M18 8v8" />
+            </>
+        ),
         home: (
             <>
                 <path d="m3 11 9-9 9 9" />
                 <path d="M5 10v11h14V10M9 21v-6h6v6" />
+            </>
+        ),
+        landmark: (
+            <>
+                <path d="m3 10 9-6 9 6M5 10h14M6 10v8M10 10v8M14 10v8M18 10v8M4 18h16M3 22h18" />
             </>
         ),
         percent: (
@@ -153,7 +197,7 @@ function TaskCard({ task, isLate }) {
                     Terlambat
                 </span>
             )}
-            <p className="text-xs font-semibold text-slate-600">{task.subject} —</p>
+            <p className="text-xs font-semibold text-slate-600">{task.subject} -</p>
             <h3 className="mb-2 mt-0.5 pr-16 text-sm font-extrabold text-slate-900">
                 {task.title}
             </h3>
@@ -173,14 +217,18 @@ function SubjectCard({ subject }) {
     return (
         <button
             type="button"
-            className="rounded-2xl border border-slate-200 bg-white p-3.5 text-left shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+            className="flex min-h-24 flex-col justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
         >
-            <span className={`mb-2 flex h-9 w-9 items-center justify-center rounded-xl text-white ${subject.color}`}>
-                <Icon name={subject.icon} className="h-5 w-5" />
+            <span className="flex items-center gap-2">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-white ${subject.color}`}>
+                    <Icon name={subject.icon} className="h-[18px] w-[18px]" />
+                </span>
+                <span className="text-[13px] font-bold leading-tight text-slate-900">
+                    {subject.name}
+                </span>
             </span>
-            <span className="block text-[13px] font-bold text-slate-900">{subject.name}</span>
-            <span className="mt-0.5 block text-[11px] font-semibold leading-4 text-slate-500">
-                {subject.tasks} tugas belum selesai
+            <span className="mt-2 block text-[11px] font-semibold leading-4 text-slate-700">
+                {subject.tasks} Tugas Belum Selesai
             </span>
         </button>
     );
@@ -188,7 +236,7 @@ function SubjectCard({ subject }) {
 
 export default function Dashboard() {
     const user = usePage().props.auth?.user;
-    const [activeTab, setActiveTab] = useState('susulan');
+    const [activeTab, setActiveTab] = useState('deadline');
     const [query, setQuery] = useState('');
     const userName = user?.name ?? 'Student Name';
     const initials = userName
@@ -310,15 +358,18 @@ export default function Dashboard() {
                                         <SubjectCard key={subject.name} subject={subject} />
                                     ))}
                                     {!query.trim() && (
-                                        <button
-                                            type="button"
-                                            className="flex min-h-[126px] flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-3 text-center shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                                        <Link
+                                            href={route('subjects.index')}
+                                            viewTransition
+                                            className="flex min-h-24 flex-col items-start justify-between rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_4px_12px_rgba(15,23,42,0.04)] transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                                         >
-                                            <span className="mb-1.5 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-200 text-sky-500">
+                                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-100 text-violet-500">
                                                 <Icon name="chevron" className="h-5 w-5" />
                                             </span>
-                                            <span className="text-xs font-bold text-slate-900">Lihat semua mapel</span>
-                                        </button>
+                                            <span className="mt-2 text-[11px] font-bold leading-4 text-slate-900">
+                                                Lihat Semua Mapel
+                                            </span>
+                                        </Link>
                                     )}
                                 </div>
                             ) : (
