@@ -15,13 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('nip', 30)->unique()->nullable();
-            $table->string('nama_lengkap');
-            $table->enum('jenis_kelamin', ['L', 'P'])->nullable();
-            $table->string('tempat_lahir')->nullable();
-            $table->date('tanggal_lahir')->nullable();
-            $table->text('alamat')->nullable();
-            $table->string('no_hp', 20)->nullable();
-            $table->string('foto')->nullable();
+            $table->string('nama', 100);
+            $table->string('gelar', 50);
             $table->timestamps();
         });
     }

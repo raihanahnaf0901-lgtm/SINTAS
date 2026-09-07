@@ -2,8 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Guru;
+use App\Models\Kelas;
+use App\Models\Siswa;
+use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DummyDataSeeder extends Seeder
 {
@@ -11,24 +15,43 @@ class DummyDataSeeder extends Seeder
      * Run the database seeds.
      */
     public function run(): void
-        {
-            // 1. Buat Data Kelas
-            $kelas = \App\Models\Kelas::create([
-                'nama_kelas' => '10 Akuntansi 1'
-            ]);
+    {
+        $kelas = Kelas::query()->firstOrCreate([
+            'nama_kelas' => '10 Akuntansi 1',
+        ], [
+            'tingkat' => '10',
+        ]);
 
-            // 2. Buat Data Siswa
-            \App\Models\Siswa::create([
-                'nama_lengkap' => 'Raihan Ahnaf',
-                'nis'          => '12345',
-                'kelas_id'     => $kelas->id,
-            ]);
+        $siswaUser = User::query()->firstOrCreate([
+            'email' => 'raihan@sintas.test',
+        ], [
+            'name' => 'Raihan Ahnaf',
+            'password' => Hash::make('password'),
+            'role' => 'siswa',
+        ]);
 
-            // 3. Buat Data Guru
-            \App\Models\Guru::create([
-                'nama'  => 'Budi Santoso',
-                'gelar' => 'S.Pd',
-                'nip'   => '19850101',
-            ]);
-        }
+        Siswa::query()->firstOrCreate([
+            'nis' => '12345',
+        ], [
+            'user_id' => $siswaUser->id,
+            'kelas_id' => $kelas->id,
+            'nama_lengkap' => 'Raihan Ahnaf',
+        ]);
+
+        $guruUser = User::query()->firstOrCreate([
+            'email' => 'budi@sintas.test',
+        ], [
+            'name' => 'Budi Santoso',
+            'password' => Hash::make('password'),
+            'role' => 'guru',
+        ]);
+
+        Guru::query()->firstOrCreate([
+            'nip' => '19850101',
+        ], [
+            'user_id' => $guruUser->id,
+            'nama' => 'Budi Santoso',
+            'gelar' => 'S.Pd',
+        ]);
+    }
 }
