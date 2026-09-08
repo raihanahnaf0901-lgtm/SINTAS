@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Notifications\KodeVerifikasiRegistrasiSiswa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -16,16 +18,22 @@ class RegistrationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_new_users_can_register(): void
+    public function test_registration_form_submission_requests_a_verification_code(): void
     {
-        $response = $this->post('/register', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+        Notification::fake();
+
+        $response = $this->from('/register')->post('/register', [
+            'name' => 'Budi Santoso',
+            'email' => 'siswa@belajar.id',
+            'password' => 'password-baru',
+            'password_confirmation' => 'password-baru',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response
+            ->assertRedirect('/register')
+            ->assertSessionHas('status', 'Kode verifikasi pendaftaran telah dikirim ke email belajar.id Anda.');
+        $this->assertGuest();
+        $this->assertDatabaseCount('users', 0);
+        Notification::assertSentOnDemand(KodeVerifikasiRegistrasiSiswa::class);
     }
 }
