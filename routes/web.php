@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\KeanggotaanRuangMapelController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RuangMapelController;
 use App\Http\Controllers\SubjectController;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,6 +41,15 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::prefix('ruang-mapel')->name('ruang-mapels.')->group(function (): void {
+        Route::get('/', [RuangMapelController::class, 'index'])->name('index');
+        Route::post('/', [RuangMapelController::class, 'store'])->name('store');
+        Route::post('/gabung', [KeanggotaanRuangMapelController::class, 'store'])->name('join');
+        Route::patch('/permintaan/{keanggotaanRuangMapel}', [KeanggotaanRuangMapelController::class, 'update'])
+            ->name('memberships.update');
+        Route::get('/{ruangMapel}', [RuangMapelController::class, 'show'])->name('show');
+    });
 });
 
 require __DIR__.'/auth.php';

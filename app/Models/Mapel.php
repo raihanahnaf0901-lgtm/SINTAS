@@ -2,28 +2,22 @@
 
 namespace App\Models;
 
+use Database\Factories\MapelFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Kelas extends Model
+class Mapel extends Model
 {
+    /** @use HasFactory<MapelFactory> */
     use HasFactory;
 
-    protected $table = 'kelas';
-
     protected $fillable = [
-        'nama_kelas',
-        'tingkat',
-        'jurusan',
-        'tahun_ajaran',
-        'wali_kelas_id',
+        'kode_mapel',
+        'nama_mapel',
+        'deskripsi',
+        'kelompok',
     ];
-
-    public function siswas(): HasMany
-    {
-        return $this->hasMany(Siswa::class);
-    }
 
     public function jadwals(): HasMany
     {
