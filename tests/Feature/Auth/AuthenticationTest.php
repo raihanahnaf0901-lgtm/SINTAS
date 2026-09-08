@@ -37,7 +37,7 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
-    public function test_siswa_can_authenticate_using_their_schema_identity(): void
+    public function test_siswa_cannot_bypass_email_code_verification_using_schema_identity(): void
     {
         $user = User::factory()->create(['role' => 'siswa']);
         $kelas = Kelas::query()->create(['nama_kelas' => '10 Akuntansi 1', 'tingkat' => '10']);
@@ -55,8 +55,10 @@ class AuthenticationTest extends TestCase
             'kelas_id' => $kelas->id,
         ]);
 
-        $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $response->assertSessionHasErrors([
+            'role' => 'Login siswa wajib menggunakan email belajar.id dan kode verifikasi.',
+        ]);
     }
 
     public function test_guru_can_authenticate_using_their_schema_identity(): void

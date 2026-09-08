@@ -26,15 +26,18 @@ class DummyDataSeeder extends Seeder
             'tingkat' => '10',
         ]);
 
-        $siswaUser = User::query()->firstOrCreate([
-            'email' => 'raihan@sintas.test',
-        ], [
+        $siswaUser = User::query()
+            ->whereIn('email', ['raihan@belajar.id', 'raihan@sintas.test'])
+            ->first() ?? new User;
+
+        $siswaUser->fill([
             'name' => 'Raihan Ahnaf',
+            'email' => 'raihan@belajar.id',
             'password' => Hash::make('password'),
             'role' => 'siswa',
-        ]);
+        ])->save();
 
-        $siswa = Siswa::query()->firstOrCreate([
+        $siswa = Siswa::query()->updateOrCreate([
             'nis' => '12345',
         ], [
             'user_id' => $siswaUser->id,
