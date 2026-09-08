@@ -3,34 +3,7 @@ import StudentLayout from '@/Layouts/StudentLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
-const summaries = [
-    { label: 'Tugas', completed: 15, total: 20, icon: 'clipboard', color: 'bg-teal-50 text-teal-700', bar: 'bg-teal-600' },
-    { label: 'Ulangan Harian', completed: 8, total: 10, icon: 'book', color: 'bg-blue-50 text-blue-700', bar: 'bg-blue-500' },
-    { label: 'Ulangan Semester', completed: 2, total: 4, icon: 'chart', color: 'bg-orange-50 text-orange-700', bar: 'bg-orange-400' },
-];
-
-const activities = {
-    deadline: [
-        { subject: 'Matematika', title: 'Tugas Persamaan Kuadrat', due: '25 Okt', icon: 'calculator', color: 'bg-violet-50 text-violet-600' },
-        { subject: 'Bahasa Indonesia', title: 'Resensi Buku', due: '27 Okt', icon: 'book', color: 'bg-orange-50 text-orange-600' },
-        { subject: 'Fisika', title: 'Laporan Praktikum', due: '30 Okt', icon: 'atom', color: 'bg-blue-50 text-blue-600' },
-    ],
-    susulan: [
-        { subject: 'Kimia', title: 'Laporan Praktikum', due: '15 Okt', icon: 'flask', color: 'bg-violet-50 text-violet-600' },
-        { subject: 'Sejarah', title: 'Ulangan Harian', due: '18 Okt', icon: 'landmark', color: 'bg-orange-50 text-orange-600' },
-        { subject: 'Biologi', title: 'Proyek Ekosistem', due: '20 Okt', icon: 'leaf', color: 'bg-teal-50 text-teal-600' },
-    ],
-};
-
-const subjects = [
-    { name: 'Matematika', tasks: 3, icon: 'calculator', color: 'bg-violet-50 text-violet-600' },
-    { name: 'Bahasa Indonesia', tasks: 1, icon: 'book', color: 'bg-orange-50 text-orange-600' },
-    { name: 'Fisika', tasks: 2, icon: 'atom', color: 'bg-blue-50 text-blue-600' },
-    { name: 'Biologi', tasks: 2, icon: 'leaf', color: 'bg-teal-50 text-teal-600' },
-    { name: 'Sejarah', tasks: 1, icon: 'landmark', color: 'bg-amber-50 text-amber-700' },
-];
-
-export default function Dashboard() {
+export default function Dashboard({ summaries, activities, subjects }) {
     const user = usePage().props.auth?.user;
     const [activeTab, setActiveTab] = useState('deadline');
     const [query, setQuery] = useState('');
@@ -40,7 +13,7 @@ export default function Dashboard() {
         : activities[activeTab].filter((task) => `${task.subject} ${task.title} ${task.due}`.toLowerCase().includes(normalizedQuery));
     const completed = summaries.reduce((total, item) => total + item.completed, 0);
     const total = summaries.reduce((total, item) => total + item.total, 0);
-    const progress = Math.round(completed / total * 100);
+    const progress = total ? Math.round(completed / total * 100) : 0;
 
     return (
         <StudentLayout title="Beranda">
@@ -51,7 +24,6 @@ export default function Dashboard() {
                     <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Halo, {user?.name?.split(' ')[0] ?? 'teman belajar'} <span className="text-teal-600">!</span></h1>
                     <p className="mt-2 text-sm leading-6 text-slate-500">Yuk, buat hari ini lebih produktif. Mulai dari satu tugas dulu.</p>
                 </div>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500">Pratinjau · Data contoh</span>
             </div>
 
             <section className="hero-pattern relative mb-7 overflow-hidden rounded-3xl bg-[#142E36] p-6 text-white sm:p-8">
@@ -59,7 +31,6 @@ export default function Dashboard() {
                 <div aria-hidden="true" className="absolute -bottom-44 right-10 h-80 w-80 rounded-full border border-white/10" />
                 <div className="relative flex items-center justify-between gap-6">
                     <div className="max-w-lg">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-teal-200"><Icon name="sparkles" className="h-3.5 w-3.5" />Ruang untuk bertumbuh</span>
                         <h2 className="mt-5 text-2xl font-bold leading-snug tracking-tight sm:text-3xl">Belajar lebih terarah.<br /><span className="text-teal-200">Raih lebih banyak.</span></h2>
                         <p className="mt-3 max-w-sm text-sm leading-6 text-slate-300">Pantau tugas, cek progres, dan siapkan langkah berikutnya. Semua dalam satu tempat.</p>
                         <Link href={route('subjects.index')} className="mt-6 inline-flex items-center gap-3 rounded-xl bg-white px-4 py-3 text-xs font-bold text-slate-900 transition hover:bg-teal-50">Jelajahi mata pelajaran<Icon name="arrow" className="h-4 w-4" /></Link>
@@ -100,7 +71,12 @@ export default function Dashboard() {
                             <div className="flex min-h-56 flex-col items-center justify-center gap-3 text-center"><span className="rounded-2xl bg-slate-50 p-4 text-slate-400"><Icon name="search" className="h-7 w-7" /></span><p className="text-sm font-bold">Tidak ada hasil</p><p className="text-xs text-slate-500">Coba gunakan kata kunci lain.</p></div>
                         ) : activeTab === 'mapel' ? (
                             <div className="grid gap-3 sm:grid-cols-2">{filteredItems.map((subject) => (
-                                <article key={subject.name} className="rounded-xl border border-slate-200 p-4"><span className={`mb-3 inline-flex rounded-xl p-2.5 ${subject.color}`}><Icon name={subject.icon} /></span><h3 className="text-sm font-bold">{subject.name}</h3><p className="mt-1 text-xs text-slate-500">{subject.tasks} tugas belum selesai</p>{subject.name === 'Matematika' && <Link href={route('subjects.show')} className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-teal-700">Lihat tugas<Icon name="arrow" className="h-3 w-3" /></Link>}</article>
+                                <Link key={subject.slug} href={route('subjects.show', { subject: subject.slug })} className="group rounded-xl border border-slate-200 p-4 transition hover:border-teal-300 hover:bg-teal-50/30">
+                                    <span className="mb-3 inline-flex rounded-xl bg-teal-50 p-2.5 text-teal-700"><Icon name={subject.icon} /></span>
+                                    <h3 className="text-sm font-bold">{subject.name}</h3>
+                                    <p className="mt-1 text-xs text-slate-500">{subject.tasks} aktivitas belum selesai</p>
+                                    <span className="mt-3 inline-flex items-center gap-2 text-xs font-bold text-teal-700">Lihat pelajaran<Icon name="arrow" className="h-3 w-3" /></span>
+                                </Link>
                             ))}</div>
                         ) : (
                             <div className="flex flex-col gap-3">{filteredItems.map((task) => (

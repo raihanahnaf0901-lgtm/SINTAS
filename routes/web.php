@@ -1,63 +1,41 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
+use App\Http\Controllers\SubjectController;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Inertia\Response;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+Route::get('/', function (Request $request): Response|RedirectResponse {
+    if ($request->user()) {
+        return to_route('dashboard');
+    }
+
+    return Inertia::render('Welcome');
 })->name('home');
 
-Route::get('/mata-pelajaran', function () {
-    return Inertia::render('Subjects');
-})->name('subjects.index');
+Route::middleware(['auth', 'verified'])->group(function (): void {
+    Route::get('/dashboard', function (): Response {
+        return Inertia::render('Dashboard', [
+            'summaries' => config('learning.summaries'),
+            'activities' => config('learning.activities'),
+            'subjects' => collect(config('learning.subjects'))
+                ->map(fn (array $subject, string $slug): array => [
+                    'slug' => $slug,
+                    'name' => $subject['name'],
+                    'icon' => $subject['icon'],
+                    'tasks' => collect($subject['tasks'])->where('completed', false)->count(),
+                ])->values(),
+        ]);
+    })->name('dashboard');
 
-Route::get('/mata-pelajaran/matematika', function () {
-    return Inertia::render('SubjectTasks', [
-        'subject' => [
-            'name' => 'Matematika',
-            'teacher' => 'Pak Budi Santoso',
-        ],
-        'tasks' => [
-            [
-                'id' => 1,
-                'title' => 'Tugas: Aljabar',
-                'details' => ['Deadline: 20 Okt 2023', 'Status: Selesai'],
-                'completed' => true,
-            ],
-            [
-                'id' => 2,
-                'title' => 'Ulangan Harian 1',
-                'details' => ['Tanggal: 25 Okt 2023', 'Nilai: 90'],
-                'completed' => true,
-            ],
-            [
-                'id' => 3,
-                'title' => 'Tugas: Geometri',
-                'details' => ['Deadline: 30 Okt 2023', 'Belum Selesai'],
-                'completed' => false,
-            ],
-            [
-                'id' => 4,
-                'title' => 'Ulangan Semester Ganjil',
-                'details' => ['Jadwal: 15 Des 2023', 'Belum Mengikuti'],
-                'completed' => false,
-            ],
-        ],
-    ]);
-})->name('subjects.show');
+    Route::get('/mata-pelajaran', [SubjectController::class, 'index'])->name('subjects.index');
+    Route::get('/mata-pelajaran/{subject}', [SubjectController::class, 'show'])->name('subjects.show');
+});
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
-
-Route::middleware('auth')->group(function () {
+Route::middleware('auth')->group(function (): void {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

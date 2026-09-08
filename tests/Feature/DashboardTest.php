@@ -26,6 +26,11 @@ class DashboardTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboard')
                 ->where('auth.user.name', 'Student Name')
+                ->has('summaries', 3)
+                ->has('activities.deadline', 3)
+                ->has('activities.susulan', 3)
+                ->has('subjects', 10)
+                ->where('subjects.0.slug', 'matematika')
                 ->etc());
     }
 }

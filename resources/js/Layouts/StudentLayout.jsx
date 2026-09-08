@@ -7,7 +7,7 @@ export default function StudentLayout({ active = 'home', title, children }) {
     const homeHref = route(user ? 'dashboard' : 'home');
     const navigation = [
         { id: 'home', label: 'Beranda', icon: 'home', href: homeHref },
-        { id: 'subjects', label: 'Mata pelajaran', icon: 'book', href: route('subjects.index') },
+        ...(user ? [{ id: 'subjects', label: 'Mata pelajaran', icon: 'book', href: route('subjects.index') }] : []),
         { id: 'profile', label: user ? 'Profil saya' : 'Masuk', icon: 'user', href: route(user ? 'profile.edit' : 'login') },
     ];
     const initials = (user?.name ?? 'Siswa').trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
