@@ -7,6 +7,7 @@ use App\Models\Kelas;
 use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -15,11 +16,11 @@ class AuthenticationTest extends TestCase
 
     public function test_login_screen_can_be_rendered(): void
     {
-        $response = $this->get('/login', [
-            'X-Inertia' => 'true',
-        ]);
-
-        $response->assertStatus(200);
+        $this->get(route('login'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Auth/Login')
+                ->has('classes')
+                ->where('auth.user', null));
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void

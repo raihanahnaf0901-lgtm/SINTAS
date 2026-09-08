@@ -2,8 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    body {
+        @apply bg-[#F5F7F9] text-slate-800 antialiased;
+    }
+
+    ::selection {
+        @apply bg-teal-200 text-teal-950;
+    }
+
+    :focus-visible {
+        @apply outline outline-2 outline-offset-4 outline-teal-600;
+    }
+}
+
 @layer components {
     .input {
-        @apply block w-full rounded-lg border-slate-300 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:ring-sky-500;
+        @apply block w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 transition placeholder:text-slate-400 focus:border-teal-600 focus:bg-white focus:ring-teal-600;
+    }
+
+    .surface {
+        @apply rounded-2xl border border-slate-200/80 bg-white shadow-[0_4px_24px_-12px_rgba(15,23,42,0.12)];
+    }
+
+    .button-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3 text-sm font-bold text-white transition hover:bg-teal-800 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .eyebrow {
+        @apply text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500;
+    }
+
+    .hero-pattern {
+        background-image: radial-gradient(circle at 90% 15%, rgba(45, 212, 191, 0.16), transparent 45%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
     }
 }

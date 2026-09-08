@@ -52,24 +52,23 @@ export default function Login({ classes, status }) {
                 </div>
             )}
 
-            <div className="mb-6 text-center">
-                <p className="text-sm font-semibold text-sky-600">Sistem Informasi Tugas</p>
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">Masuk ke SINTAS</h1>
-                <p className="mt-2 text-sm text-slate-600">Pilih peran untuk melanjutkan.</p>
+            <div className="mb-7">
+                <p className="eyebrow text-teal-700">Senang bertemu lagi</p>
+                <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">Masuk ke SINTAS</h1>
+                <p className="mt-2 text-sm leading-6 text-slate-500">Pilih peranmu dan lanjutkan perjalanan belajar.</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2" role="tablist" aria-label="Pilih peran">
+            <div className="grid grid-cols-3 gap-2" aria-label="Pilih peran">
                 {roleOptions.map((role) => (
                     <button
                         key={role.id}
                         type="button"
-                        role="tab"
-                        aria-selected={data.role === role.id}
+                        aria-pressed={data.role === role.id}
                         onClick={() => selectRole(role.id)}
-                        className={`rounded-xl border px-2 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 ${
+                        className={`rounded-xl border px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2 ${
                             data.role === role.id
-                                ? 'border-sky-600 bg-sky-50 text-sky-900'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300'
+                                ? 'border-teal-600 bg-teal-50 text-teal-900 ring-1 ring-teal-600'
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-teal-300'
                         }`}
                     >
                         <span className="block text-sm font-bold">{role.label}</span>
@@ -113,10 +112,10 @@ export default function Login({ classes, status }) {
 
                 <InputError message={errors.role} />
 
-                <button type="button" onClick={useExample} className="w-full rounded-lg border border-dashed border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-800 transition hover:bg-sky-100">
+                <button type="button" onClick={useExample} className="w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-xs font-semibold text-slate-600 transition hover:border-teal-400 hover:bg-teal-50 hover:text-teal-800">
                     Isi contoh akun {data.role}
                 </button>
-                <button type="submit" disabled={processing} className="w-full rounded-lg bg-sky-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="submit" disabled={processing} className="button-primary w-full">
                     {processing ? 'Memeriksa data…' : 'Masuk'}
                 </button>
             </form>
