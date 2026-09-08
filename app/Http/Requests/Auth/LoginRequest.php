@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Auth;
 
 use App\Models\Guru;
-use App\Models\Siswa;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -51,13 +50,20 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        if ($this->string('role')->toString() === 'siswa') {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'role' => 'Login siswa wajib menggunakan email belajar.id dan kode verifikasi.',
+            ]);
+        }
+
         $authenticated = match ($this->string('role')->toString()) {
             'admin' => Auth::attempt([
                 'email' => $this->string('email')->toString(),
                 'password' => $this->string('password')->toString(),
                 'role' => 'admin',
             ], $this->boolean('remember')),
-            'siswa' => $this->authenticateSiswa(),
             'guru' => $this->authenticateGuru(),
         };
 
@@ -107,24 +113,6 @@ class LoginRequest extends FormRequest
             $this->string('nip')->toString(),
             $this->ip(),
         ])));
-    }
-
-    private function authenticateSiswa(): bool
-    {
-        $siswa = Siswa::query()
-            ->with('user')
-            ->where('nama_lengkap', $this->string('nama_lengkap')->toString())
-            ->where('nis', $this->string('nis')->toString())
-            ->where('kelas_id', $this->integer('kelas_id'))
-            ->first();
-
-        if ($siswa?->user?->role !== 'siswa') {
-            return false;
-        }
-
-        Auth::login($siswa->user);
-
-        return true;
     }
 
     private function authenticateGuru(): bool
