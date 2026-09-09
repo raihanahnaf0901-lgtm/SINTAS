@@ -8,8 +8,10 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredSiswaController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\SiswaLoginCodeController;
+use App\Http\Controllers\Auth\SiswaRegistrationCodeController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,7 +19,13 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [SiswaRegistrationCodeController::class, 'store']);
+
+    Route::post('register/siswa/kode', [SiswaRegistrationCodeController::class, 'store'])
+        ->name('siswa-registration-code.store');
+
+    Route::post('register/siswa/verifikasi', [RegisteredSiswaController::class, 'store'])
+        ->name('siswa-registration.verify');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
