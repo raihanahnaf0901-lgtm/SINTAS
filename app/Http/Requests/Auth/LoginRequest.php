@@ -2,9 +2,6 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Models\Guru;
-use Illuminate\Auth\Events\Lockout;
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -13,123 +10,37 @@ use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, ValidationRule|array<mixed>|string>
-     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge(['email' => Str::lower(trim((string) $this->input('email')))]);
+    }
+
     public function rules(): array
     {
-        return [
-            'role' => ['required', 'in:admin,siswa,guru'],
-            'email' => ['required_if:role,admin', 'nullable', 'email'],
-            'password' => ['required_if:role,admin', 'nullable', 'string'],
-            'nama_lengkap' => ['required_if:role,siswa', 'nullable', 'string', 'max:100'],
-            'nis' => ['required_if:role,siswa', 'nullable', 'string', 'max:20'],
-            'kelas_id' => ['required_if:role,siswa', 'nullable', 'integer', 'exists:kelas,id'],
-            'nama' => ['required_if:role,guru', 'nullable', 'string', 'max:100'],
-            'gelar' => ['required_if:role,guru', 'nullable', 'string', 'max:50'],
-            'nip' => ['required_if:role,guru', 'nullable', 'string', 'max:30'],
-        ];
+        return ['role' => ['required', 'in:siswa,guru'], 'email' => ['required', 'email'], 'password' => ['required', 'string'],
+            'remember' => ['sometimes', 'boolean']];
     }
 
-    /**
-     * Attempt to authenticate the request's credentials.
-     *
-     * @throws ValidationException
-     */
     public function authenticate(): void
     {
-        $this->ensureIsNotRateLimited();
-
-        if ($this->string('role')->toString() === 'siswa') {
-            RateLimiter::hit($this->throttleKey());
-
-            throw ValidationException::withMessages([
-                'role' => 'Login siswa wajib menggunakan email belajar.id dan kode verifikasi.',
-            ]);
+        $key = 'teacher-login:'.$this->input('email').'|'.$this->ip();
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            throw ValidationException::withMessages(['email' => 'Terlalu banyak percobaan login. Tunggu sebentar.']);
         }
-
-        $authenticated = match ($this->string('role')->toString()) {
-            'admin' => Auth::attempt([
-                'email' => $this->string('email')->toString(),
-                'password' => $this->string('password')->toString(),
-                'role' => 'admin',
-            ], $this->boolean('remember')),
-            'guru' => $this->authenticateGuru(),
-        };
-
-        if (! $authenticated) {
-            RateLimiter::hit($this->throttleKey());
-
-            throw ValidationException::withMessages([
-                'role' => 'Data login tidak cocok.',
-            ]);
+        RateLimiter::hit($key, 60);
+        if ($this->input('role') !== 'guru') {
+            throw ValidationException::withMessages(['role' => 'Login siswa memerlukan kode verifikasi email.']);
         }
-
-        RateLimiter::clear($this->throttleKey());
-    }
-
-    /**
-     * Ensure the login request is not rate limited.
-     *
-     * @throws ValidationException
-     */
-    public function ensureIsNotRateLimited(): void
-    {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
-            return;
+        if (! Auth::attempt(['email' => $this->input('email'), 'password' => $this->input('password'),
+            'role' => 'guru', 'status' => 'aktif',
+            fn ($query) => $query->whereHas('guru')], $this->boolean('remember'))) {
+            throw ValidationException::withMessages(['email' => 'Email atau password guru tidak cocok, atau akun belum aktif.']);
         }
-
-        event(new Lockout($this));
-
-        $seconds = RateLimiter::availableIn($this->throttleKey());
-
-        throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
-        ]);
-    }
-
-    /**
-     * Get the rate limiting throttle key for the request.
-     */
-    public function throttleKey(): string
-    {
-        return Str::transliterate(Str::lower(implode('|', [
-            $this->string('role')->toString(),
-            $this->string('email')->toString(),
-            $this->string('nis')->toString(),
-            $this->string('nip')->toString(),
-            $this->ip(),
-        ])));
-    }
-
-    private function authenticateGuru(): bool
-    {
-        $guru = Guru::query()
-            ->with('user')
-            ->where('nama', $this->string('nama')->toString())
-            ->where('gelar', $this->string('gelar')->toString())
-            ->where('nip', $this->string('nip')->toString())
-            ->first();
-
-        if ($guru?->user?->role !== 'guru') {
-            return false;
-        }
-
-        Auth::login($guru->user);
-
-        return true;
+        RateLimiter::clear($key);
     }
 }

@@ -32,8 +32,10 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $request->user()?->loadMissing(['guru', 'siswa.kelas']),
             ],
+            'unreadNotifications' => fn () => $request->user()?->notifikasi()->whereNull('read_at')->count() ?? 0,
+            'pendingInvite' => fn () => $request->session()->get('kelas_invite'),
         ];
     }
 }

@@ -12,26 +12,10 @@ class Kelas extends Model
 
     protected $table = 'kelas';
 
-    protected $fillable = [
-        'nama_kelas',
-        'tingkat',
-        'jurusan',
-        'tahun_ajaran',
-        'wali_kelas_id',
-    ];
+    protected $fillable = ['nama_kelas', 'tahun_ajaran', 'status', 'tingkat', 'jurusan'];
 
     public function siswas(): HasMany
     {
         return $this->hasMany(Siswa::class);
-    }
-
-    public function jadwals(): HasMany
-    {
-        return $this->hasMany(Jadwal::class);
-    }
-
-    public function ruangMapels(): HasMany
-    {
-        return $this->hasMany(RuangMapel::class);
     }
 }

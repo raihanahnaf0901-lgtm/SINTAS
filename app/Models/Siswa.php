@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\StatusKeanggotaanRuangMapel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,37 +12,38 @@ class Siswa extends Model
 {
     use HasFactory;
 
-    protected $table = 'siswas';
+    protected $table = 'siswa';
 
-    protected $fillable = [
-        'user_id',
-        'kelas_id',
-        'nis',
-        'nisn',
-        'nama_lengkap',
-        'status',
-    ];
-
-    public function kelas(): BelongsTo
-    {
-        return $this->belongsTo(Kelas::class);
-    }
+    protected $fillable = ['user_id', 'kelas_id', 'nis', 'nisn', 'nama_lengkap'];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function keanggotaanRuangMapels(): HasMany
+    public function kelas(): BelongsTo
     {
-        return $this->hasMany(KeanggotaanRuangMapel::class);
+        return $this->belongsTo(Kelas::class);
     }
 
-    public function ruangMapels(): BelongsToMany
+    public function anggotaKelas(): HasMany
     {
-        return $this->belongsToMany(RuangMapel::class, 'keanggotaan_ruang_mapels')
-            ->wherePivot('status', StatusKeanggotaanRuangMapel::Diterima->value)
-            ->withPivot(['status', 'ditinjau_oleh', 'ditinjau_pada'])
-            ->withTimestamps();
+        return $this->hasMany(AnggotaKelas::class);
+    }
+
+    public function kelasMapel(): BelongsToMany
+    {
+        return $this->belongsToMany(KelasMapel::class, 'anggota_kelas')
+            ->wherePivot('status', 'diterima')->withPivot(['status', 'join_method', 'approved_at'])->withTimestamps();
+    }
+
+    public function penilaian(): HasMany
+    {
+        return $this->hasMany(Penilaian::class);
+    }
+
+    public function pengumpulan(): HasMany
+    {
+        return $this->hasMany(PengumpulanTugas::class);
     }
 }

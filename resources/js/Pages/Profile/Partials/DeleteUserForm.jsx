@@ -1,117 +1,37 @@
-import DangerButton from '@/Components/DangerButton';
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
 import Modal from '@/Components/Modal';
-import SecondaryButton from '@/Components/SecondaryButton';
-import TextInput from '@/Components/TextInput';
+import { Field } from '@/Pages/Auth/Partials/AuthFields';
+import { DialogTitle } from '@headlessui/react';
 import { useForm } from '@inertiajs/react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 export default function DeleteUserForm({ className = '' }) {
-    const [confirmingUserDeletion, setConfirmingUserDeletion] = useState(false);
-    const passwordInput = useRef();
+    const [show, setShow] = useState(false);
+    const form = useForm({ password: '' });
 
-    const {
-        data,
-        setData,
-        delete: destroy,
-        processing,
-        reset,
-        errors,
-        clearErrors,
-    } = useForm({
-        password: '',
-    });
+    function close() {
+        if (form.processing) return;
+        setShow(false);
+        form.reset();
+        form.clearErrors();
+    }
 
-    const confirmUserDeletion = () => {
-        setConfirmingUserDeletion(true);
-    };
-
-    const deleteUser = (e) => {
-        e.preventDefault();
-
-        destroy(route('profile.destroy'), {
-            preserveScroll: true,
-            onSuccess: () => closeModal(),
-            onError: () => passwordInput.current.focus(),
-            onFinish: () => reset(),
-        });
-    };
-
-    const closeModal = () => {
-        setConfirmingUserDeletion(false);
-
-        clearErrors();
-        reset();
-    };
+    function submit(event) {
+        event.preventDefault();
+        form.delete(route('profile.destroy'), { preserveScroll: true, onSuccess: () => setShow(false), onFinish: () => form.reset() });
+    }
 
     return (
-        <section className={`space-y-6 ${className}`}>
-            <header>
-                <h2 className="text-lg font-medium text-gray-900">
-                    Delete Account
-                </h2>
-
-                <p className="mt-1 text-sm text-gray-600">
-                    Once your account is deleted, all of its resources and data
-                    will be permanently deleted. Before deleting your account,
-                    please download any data or information that you wish to
-                    retain.
-                </p>
-            </header>
-
-            <DangerButton onClick={confirmUserDeletion}>
-                Delete Account
-            </DangerButton>
-
-            <Modal show={confirmingUserDeletion} onClose={closeModal}>
-                <form onSubmit={deleteUser} className="p-6">
-                    <h2 className="text-lg font-medium text-gray-900">
-                        Are you sure you want to delete your account?
-                    </h2>
-
-                    <p className="mt-1 text-sm text-gray-600">
-                        Once your account is deleted, all of its resources and
-                        data will be permanently deleted. Please enter your
-                        password to confirm you would like to permanently delete
-                        your account.
-                    </p>
-
-                    <div className="mt-6">
-                        <InputLabel
-                            htmlFor="password"
-                            value="Password"
-                            className="sr-only"
-                        />
-
-                        <TextInput
-                            id="password"
-                            type="password"
-                            name="password"
-                            ref={passwordInput}
-                            value={data.password}
-                            onChange={(e) =>
-                                setData('password', e.target.value)
-                            }
-                            className="mt-1 block w-3/4"
-                            isFocused
-                            placeholder="Password"
-                        />
-
-                        <InputError
-                            message={errors.password}
-                            className="mt-2"
-                        />
-                    </div>
-
-                    <div className="mt-6 flex justify-end">
-                        <SecondaryButton onClick={closeModal}>
-                            Cancel
-                        </SecondaryButton>
-
-                        <DangerButton className="ms-3" disabled={processing}>
-                            Delete Account
-                        </DangerButton>
+        <section className={className}>
+            <h2 className="text-base font-extrabold text-slate-900">Hapus akun</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Menghapus akun juga menghapus data yang terhubung dengan akunmu secara permanen. Simpan informasi yang masih diperlukan terlebih dahulu.</p>
+            <button type="button" onClick={() => setShow(true)} className="mt-4 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50">Hapus akun saya</button>
+            <Modal show={show} maxWidth="md" closeable={!form.processing} onClose={close}>
+                <form onSubmit={submit} className="space-y-5 p-6">
+                    <div><DialogTitle className="text-lg font-extrabold text-slate-900">Hapus akun secara permanen?</DialogTitle><p className="mt-2 text-sm leading-6 text-slate-500">Tindakan ini tidak dapat dibatalkan. Masukkan password akun SINTAS untuk mengonfirmasi.</p></div>
+                    <Field label="Password SINTAS" field="password" type="password" form={form} disabled={form.processing} autoComplete="current-password" autoFocus />
+                    <div className="flex flex-wrap justify-end gap-3">
+                        <button type="button" disabled={form.processing} onClick={close} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600">Batal</button>
+                        <button type="submit" disabled={form.processing} className="rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">{form.processing ? 'Menghapus...' : 'Ya, hapus akun'}</button>
                     </div>
                 </form>
             </Modal>

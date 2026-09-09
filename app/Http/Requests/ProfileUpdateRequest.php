@@ -18,6 +18,8 @@ class ProfileUpdateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'nis' => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('siswa')->ignore($this->user()->siswa?->id)],
+            'nisn' => ['sometimes', 'nullable', 'digits:10', Rule::unique('siswa')->ignore($this->user()->siswa?->id)],
             'email' => [
                 'required',
                 'string',
