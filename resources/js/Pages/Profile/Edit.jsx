@@ -1,121 +1,75 @@
-import InputError from '@/Components/InputError';
+import Icon from '@/Components/Icon';
+import Modal from '@/Components/Modal';
 import StudentLayout from '@/Layouts/StudentLayout';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { DialogTitle } from '@headlessui/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import AcademicProfileForm from './Partials/AcademicProfileForm';
+import DeleteUserForm from './Partials/DeleteUserForm';
+import UpdatePasswordForm from './Partials/UpdatePasswordForm';
+import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 
-function Icon({ name, className = 'h-5 w-5' }) {
-    const paths = {
-        arrowLeft: <path d="m15 18-6-6 6-6" />,
-        home: <><path d="m3 11 9-9 9 9" /><path d="M5 10v11h14V10M9 21v-6h6v6" /></>,
-        logout: <><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 19V5a2 2 0 0 0-2-2h-6" /></>,
-        mail: <><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.9 1.9 0 0 1-2.06 0L2 7" /></>,
-        pencil: <><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
-        user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
-    };
-
-    return (
-        <svg aria-hidden="true" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
-            {paths[name]}
-        </svg>
-    );
-}
-
-export default function Edit() {
+export default function Edit({ siswa, status }) {
     const user = usePage().props.auth.user;
-    const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
-    const initials = user.name
-        .split(' ')
-        .slice(0, 2)
-        .map((name) => name[0])
-        .join('')
-        .toUpperCase();
-    const roleLabel = user.role === 'guru' ? 'Guru' : user.role === 'admin' ? 'Admin' : 'Siswa';
-    const { data, setData, patch, processing, recentlySuccessful, errors } = useForm({
-        name: user.name,
-        email: user.email,
-    });
-
-    function submit(event) {
-        event.preventDefault();
-        patch(route('profile.update'));
-    }
-
-    function logout() {
-        router.post(route('logout'));
-    }
+    const student = siswa ?? user.siswa;
+    const teacher = user.guru;
+    const logout = useForm({});
+    const [showLogout, setShowLogout] = useState(false);
+    const initials = user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    const roleLabel = user.role === 'guru' ? teacher?.jenis_guru === 'guru_piket' ? 'Guru piket' : 'Guru mata pelajaran' : 'Siswa';
 
     return (
         <>
-            <Head title="Profil Saya" />
-
+            <Head title="Profil saya" />
             <StudentLayout active="profile" title="Profil saya">
-                <div className="mb-7"><p className="eyebrow mb-2">Ruang personalmu</p><h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Profil saya</h1><p className="mt-2 text-sm text-slate-500">Kelola informasi dan pengaturan akunmu.</p></div>
+                <div className="mb-7"><p className="eyebrow mb-2">Ruang personalmu</p><h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Profil saya</h1><p className="mt-2 text-sm text-slate-500">Kelola identitas, informasi akun, dan keamananmu.</p></div>
                 <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-                    <section className="hero-pattern rounded-3xl bg-[#142E36] p-8 text-center text-white">
-                        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-teal-200/20 bg-teal-200/10 text-2xl font-extrabold text-teal-200">{initials}</div>
-                        <h2 className="mt-5 break-words text-xl font-bold">{user.name}</h2>
-                        <span className="mt-3 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-teal-200">{roleLabel}</span>
-                        <p className="mt-6 break-words border-t border-white/10 pt-5 text-xs leading-6 text-slate-300">{user.email}</p>
-                    </section>
-                    <div className="min-w-0">
-                        <form onSubmit={submit} className="surface p-6 sm:p-8">
-                            <div className="flex items-center gap-3">
-                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700"><Icon name="pencil" /></span>
-                                <div>
-                                    <h3 className="text-base font-extrabold text-slate-900">Informasi Akun</h3>
-                                    <p className="text-xs text-slate-500">Perbarui data profilmu di sini.</p>
-                                </div>
-                            </div>
-
-                            <div className="mt-5 space-y-4">
-                                <label className="block">
-                                    <span className="mb-1.5 block text-sm font-bold text-slate-700">Nama lengkap</span>
-                                    <input id="name" value={data.name} onChange={(event) => setData('name', event.target.value)} className="input" required autoComplete="name" />
-                                    <InputError message={errors.name} className="mt-1.5" />
-                                </label>
-                                <label className="block">
-                                    <span className="mb-1.5 block text-sm font-bold text-slate-700">Email</span>
-                                    <span className="flex items-center rounded-lg border border-slate-300 bg-white shadow-sm focus-within:border-teal-600 focus-within:ring-1 focus-within:ring-teal-600">
-                                        <Icon name="mail" className="ml-3 h-4 w-4 shrink-0 text-slate-400" />
-                                        <input id="email" type="email" value={data.email} onChange={(event) => setData('email', event.target.value)} className="w-full border-0 bg-transparent px-3 py-2.5 text-sm text-slate-900 focus:ring-0" required autoComplete="username" />
-                                    </span>
-                                    <InputError message={errors.email} className="mt-1.5" />
-                                </label>
-                            </div>
-
-                            <button type="submit" disabled={processing} className="button-primary mt-6 w-full">
-                                {processing ? 'Menyimpan…' : 'Simpan Perubahan'}
-                            </button>
-                            {recentlySuccessful && <p className="mt-3 text-center text-sm font-semibold text-emerald-600">Perubahan berhasil disimpan.</p>}
-                        </form>
-
-                        <section className="surface mt-5 p-6">
-                            <h3 className="text-sm font-extrabold text-slate-900">Keluar dari akun</h3>
-                            <p className="mt-1 text-xs leading-5 text-slate-500">Kamu dapat masuk lagi kapan saja menggunakan data akunmu.</p>
-                            <button type="button" onClick={() => setShowLogoutConfirmation(true)} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                                <Icon name="logout" className="h-4 w-4" /> Keluar
-                            </button>
+                    <aside className="space-y-5">
+                        <section className="hero-pattern rounded-3xl bg-[#142E36] p-8 text-center text-white">
+                            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border border-teal-200/20 bg-teal-200/10 text-2xl font-extrabold text-teal-200">{initials}</div>
+                            <h2 className="mt-5 break-words text-xl font-bold">{user.name}</h2>
+                            <span className="mt-3 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-teal-200">{roleLabel}</span>
+                            <p className="mt-6 break-all border-t border-white/10 pt-5 text-xs leading-6 text-slate-300">{user.email}</p>
+                            <p className="mt-2 text-xs text-teal-200">{user.email_verified_at ? 'Email terverifikasi' : 'Email belum terverifikasi'}</p>
                         </section>
-
+                        {(student || teacher) && <section className="surface p-5">
+                            <h2 className="text-sm font-extrabold text-slate-800">Data sekolah</h2>
+                            <dl className="mt-4 space-y-3 text-sm">
+                                {teacher ? <>
+                                    <div><dt className="text-xs text-slate-500">NIP</dt><dd className="mt-1 break-all font-semibold">{teacher.nip || 'Belum diisi'}</dd></div>
+                                    <div><dt className="text-xs text-slate-500">Gelar</dt><dd className="mt-1 font-semibold">{teacher.gelar || 'Belum diisi'}</dd></div>
+                                </> : <>
+                                    <div><dt className="text-xs text-slate-500">NIS</dt><dd className="mt-1 break-all font-semibold">{student.nis || 'Belum diisi'}</dd></div>
+                                    <div><dt className="text-xs text-slate-500">Kelas sekolah</dt><dd className="mt-1 font-semibold">{student.kelas?.nama_kelas || 'Belum dipilih'}</dd></div>
+                                </>}
+                            </dl>
+                            {teacher && <p className="mt-4 text-xs leading-5 text-slate-500">Hubungi pengelola sekolah untuk memperbarui NIP, gelar, atau jenis guru.</p>}
+                        </section>}
+                    </aside>
+                    <div className="min-w-0 space-y-5">
+                        <UpdateProfileInformationForm status={status} className="surface p-6 sm:p-8" />
+                        {user.role === 'siswa' && <section className="surface p-6 sm:p-8"><AcademicProfileForm siswa={student} /></section>}
+                        <UpdatePasswordForm className="surface p-6 sm:p-8" />
+                        <section className="surface p-6 sm:p-8">
+                            <h2 className="text-base font-extrabold text-slate-900">Keluar dari akun</h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">Selesai menggunakan SINTAS? Keluar untuk menjaga akunmu, terutama pada perangkat bersama.</p>
+                            <button type="button" onClick={() => setShowLogout(true)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-100"><Icon name="logout" className="h-4 w-4" />Keluar dari akun</button>
+                        </section>
+                        {user.role === 'siswa' && <DeleteUserForm className="surface p-6 sm:p-8" />}
                     </div>
                 </div>
             </StudentLayout>
-
-            {showLogoutConfirmation && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-5" role="dialog" aria-modal="true" aria-labelledby="logout-confirmation-title">
-                    <div className="w-full max-w-sm rounded-[24px] bg-white p-6 text-center shadow-2xl">
-                        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600">
-                            <Icon name="logout" className="h-7 w-7" />
-                        </span>
-                        <h2 id="logout-confirmation-title" className="mt-4 text-lg font-extrabold text-slate-900">Keluar dari akun?</h2>
-                        <p className="mt-2 text-sm leading-6 text-slate-600">Apakah Anda yakin ingin keluar? Kamu perlu masuk kembali untuk mengakses SINTAS.</p>
-                        <div className="mt-6 flex gap-3">
-                            <button type="button" onClick={() => setShowLogoutConfirmation(false)} className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2">Batal</button>
-                            <button type="button" onClick={logout} className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Ya, Keluar</button>
-                        </div>
+            <Modal show={showLogout} maxWidth="sm" closeable={!logout.processing} onClose={() => setShowLogout(false)}>
+                <div className="p-6">
+                    <span className="mb-4 inline-flex rounded-xl bg-red-50 p-3 text-red-600"><Icon name="logout" className="h-6 w-6" /></span>
+                    <DialogTitle className="text-lg font-extrabold text-slate-900">Keluar dari akun?</DialogTitle>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">Apakah Anda yakin ingin keluar? Kamu perlu masuk kembali untuk mengakses SINTAS.</p>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <button type="button" disabled={logout.processing} onClick={() => setShowLogout(false)} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600">Batal</button>
+                        <button type="button" disabled={logout.processing} onClick={() => logout.post(route('logout'))} className="rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-50">{logout.processing ? 'Keluar...' : 'Ya, keluar'}</button>
                     </div>
                 </div>
-            )}
+            </Modal>
         </>
     );
 }

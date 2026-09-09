@@ -11,14 +11,11 @@ class Guru extends Model
 {
     use HasFactory;
 
-    protected $table = 'gurus';
+    protected $table = 'guru';
 
-    protected $fillable = [
-        'user_id',
-        'nama',
-        'gelar',
-        'nip',
-    ];
+    protected $fillable = ['user_id', 'nama_lengkap', 'gelar', 'nip', 'jenis_guru'];
+
+    protected $attributes = ['jenis_guru' => 'guru_mapel'];
 
     public function user(): BelongsTo
     {
@@ -30,13 +27,13 @@ class Guru extends Model
         return $this->hasMany(Jadwal::class);
     }
 
-    public function ruangMapels(): HasMany
+    public function kelasMapelDibuat(): HasMany
     {
-        return $this->hasMany(RuangMapel::class);
+        return $this->hasMany(KelasMapel::class, 'guru_pembuat_id');
     }
 
-    public function keanggotaanDitinjau(): HasMany
+    public function whitelist(): HasMany
     {
-        return $this->hasMany(KeanggotaanRuangMapel::class, 'ditinjau_oleh');
+        return $this->hasMany(WhitelistGuruKelas::class);
     }
 }

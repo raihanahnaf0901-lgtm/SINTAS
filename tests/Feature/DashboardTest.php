@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Siswa;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -13,24 +13,15 @@ class DashboardTest extends TestCase
 
     public function test_unauthenticated_request_redirects_to_login(): void
     {
-        $this->get(route('dashboard'))
-            ->assertRedirectToRoute('login');
+        $this->get(route('dashboard'))->assertRedirectToRoute('login');
     }
 
-    public function test_authenticated_user_sees_student_dashboard(): void
+    public function test_new_student_sees_zero_progress_and_empty_activities(): void
     {
-        $user = User::factory()->create(['name' => 'Student Name']);
-
-        $this->actingAs($user)
-            ->get(route('dashboard'))
-            ->assertInertia(fn (Assert $page) => $page
-                ->component('Dashboard')
-                ->where('auth.user.name', 'Student Name')
-                ->has('summaries', 3)
-                ->has('activities.deadline', 3)
-                ->has('activities.susulan', 3)
-                ->has('subjects', 10)
-                ->where('subjects.0.slug', 'matematika')
-                ->etc());
+        $student = Siswa::factory()->create();
+        $this->actingAs($student->user)->get(route('dashboard'))
+            ->assertInertia(fn (Assert $page) => $page->component('Dashboard')
+                ->has('summaries', 3)->where('summaries.0.total', 0)->where('summaries.0.completed', 0)
+                ->has('activities.deadline', 0)->has('activities.susulan', 0)->has('subjects', 0)->has('jadwal', 0));
     }
 }

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\OtpVerification;
 use App\Models\Siswa;
-use App\Models\SiswaLoginCode;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -13,121 +13,64 @@ class AuthenticatedSiswaSessionControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_valid_code_authenticates_the_student_and_consumes_the_code(): void
+    private function code(User $user, array $attributes = []): OtpVerification
     {
-        $user = $this->createStudent();
-        $loginCode = SiswaLoginCode::factory()->for($user)->create([
-            'code_hash' => Hash::make('123456'),
+        return $user->otpVerifications()->create([
+            'purpose' => 'login', 'code_hash' => Hash::make('123456'), 'expires_at' => now()->addMinutes(10),
+            'attempts' => 0, ...$attributes,
         ]);
+    }
 
-        $response = $this->postJson(route('siswa-login.verify'), [
-            'email' => ' SISWA@BELAJAR.ID ',
-            'code' => '123456',
-        ]);
-
-        $response
-            ->assertOk()
-            ->assertJsonPath('message', 'Verifikasi berhasil. Anda telah masuk sebagai siswa.')
-            ->assertJsonPath('redirect', '/dashboard');
+    public function test_valid_code_authenticates_and_cannot_be_replayed(): void
+    {
+        $user = Siswa::factory()->create()->user;
+        $code = $this->code($user);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertOk();
         $this->assertAuthenticatedAs($user);
-        $this->assertNotNull($loginCode->refresh()->used_at);
+        $this->assertNotNull($code->fresh()->used_at);
+        $this->post('/logout');
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertUnprocessable();
     }
 
-    public function test_wrong_code_increments_attempts_without_authenticating(): void
+    public function test_five_wrong_attempts_are_persisted_and_disable_the_code(): void
     {
-        $user = $this->createStudent();
-        $loginCode = SiswaLoginCode::factory()->for($user)->create([
-            'code_hash' => Hash::make('123456'),
-        ]);
-
-        $response = $this->postJson(route('siswa-login.verify'), [
-            'email' => $user->email,
-            'code' => '654321',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.code.0', 'Kode verifikasi salah, kedaluwarsa, atau sudah digunakan.');
-        $this->assertGuest();
-        $this->assertSame(1, $loginCode->refresh()->attempts);
-        $this->assertNull($loginCode->used_at);
-    }
-
-    public function test_fifth_wrong_attempt_invalidates_the_code(): void
-    {
-        $user = $this->createStudent();
-        $loginCode = SiswaLoginCode::factory()->for($user)->create([
-            'code_hash' => Hash::make('123456'),
-            'attempts' => 4,
-        ]);
-
-        $this->postJson(route('siswa-login.verify'), [
-            'email' => $user->email,
-            'code' => '654321',
-        ])->assertUnprocessable();
-
-        $this->assertSame(5, $loginCode->refresh()->attempts);
-        $this->assertNotNull($loginCode->used_at);
-
-        $this->postJson(route('siswa-login.verify'), [
-            'email' => $user->email,
-            'code' => '123456',
-        ])->assertUnprocessable();
+        $user = Siswa::factory()->create()->user;
+        $code = $this->code($user);
+        for ($i = 1; $i <= 5; $i++) {
+            $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '654321'])->assertUnprocessable();
+            $this->assertSame($i, $code->fresh()->attempts);
+        }
+        $this->assertNotNull($code->fresh()->used_at);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertUnprocessable();
         $this->assertGuest();
     }
 
-    public function test_expired_code_cannot_authenticate_the_student(): void
+    public function test_expired_and_wrong_purpose_codes_do_not_authenticate(): void
     {
-        $user = $this->createStudent();
-        $loginCode = SiswaLoginCode::factory()->expired()->for($user)->create();
-
-        $response = $this->postJson(route('siswa-login.verify'), [
-            'email' => $user->email,
-            'code' => '123456',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('code');
-        $this->assertGuest();
-        $this->assertNotNull($loginCode->refresh()->used_at);
-    }
-
-    public function test_used_code_cannot_be_replayed(): void
-    {
-        $user = $this->createStudent();
-        SiswaLoginCode::factory()->used()->for($user)->create();
-
-        $response = $this->postJson(route('siswa-login.verify'), [
-            'email' => $user->email,
-            'code' => '123456',
-        ]);
-
-        $response->assertUnprocessable()->assertJsonValidationErrors('code');
+        $user = Siswa::factory()->create()->user;
+        $this->code($user, ['expires_at' => now()]);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertUnprocessable();
+        $this->code($user, ['purpose' => 'reset_password']);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertUnprocessable();
         $this->assertGuest();
     }
 
-    public function test_code_must_contain_exactly_six_digits(): void
+    public function test_inactive_account_and_another_students_code_are_rejected(): void
     {
-        $response = $this->postJson(route('siswa-login.verify'), [
-            'email' => 'siswa@belajar.id',
-            'code' => 'ABC12',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.code.0', 'Kode verifikasi harus terdiri dari 6 angka.');
+        $user = Siswa::factory()->create()->user;
+        $other = Siswa::factory()->create()->user;
+        $this->code($other);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '123456'])->assertUnprocessable();
+        $other->update(['status' => 'nonaktif']);
+        $this->postJson(route('siswa-login.verify'), ['email' => $other->email, 'code' => '123456'])->assertUnprocessable();
         $this->assertGuest();
     }
 
-    private function createStudent(string $email = 'siswa@belajar.id'): User
+    public function test_code_requires_exactly_six_digits(): void
     {
-        $user = User::factory()->create([
-            'email' => $email,
-            'role' => 'siswa',
-        ]);
-        Siswa::factory()->for($user)->create();
-
-        return $user;
+        $user = Siswa::factory()->create()->user;
+        $this->code($user);
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => '12345'])->assertUnprocessable();
+        $this->postJson(route('siswa-login.verify'), ['email' => $user->email, 'code' => 'abcdef'])->assertUnprocessable();
     }
 }

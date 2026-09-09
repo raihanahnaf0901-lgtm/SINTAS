@@ -1,93 +1,27 @@
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, useForm } from '@inertiajs/react';
+import { Field, Notice } from './Partials/AuthFields';
+import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function ResetPassword({ token, email }) {
-    const { data, setData, post, processing, errors, reset } = useForm({
-        token: token,
-        email: email,
-        password: '',
-        password_confirmation: '',
-    });
+    const form = useForm({ token, email: email ?? '', password: '', password_confirmation: '' });
 
-    const submit = (e) => {
-        e.preventDefault();
-
-        post(route('password.store'), {
-            onFinish: () => reset('password', 'password_confirmation'),
-        });
-    };
+    function submit(event) {
+        event.preventDefault();
+        form.post(route('password.store'), { onFinish: () => form.reset('password', 'password_confirmation') });
+    }
 
     return (
         <GuestLayout>
-            <Head title="Reset Password" />
-
-            <form onSubmit={submit}>
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
-
-                    <TextInput
-                        id="email"
-                        type="email"
-                        name="email"
-                        value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        onChange={(e) => setData('email', e.target.value)}
-                    />
-
-                    <InputError message={errors.email} className="mt-2" />
-                </div>
-
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
-
-                    <TextInput
-                        id="password"
-                        type="password"
-                        name="password"
-                        value={data.password}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        isFocused={true}
-                        onChange={(e) => setData('password', e.target.value)}
-                    />
-
-                    <InputError message={errors.password} className="mt-2" />
-                </div>
-
-                <div className="mt-4">
-                    <InputLabel
-                        htmlFor="password_confirmation"
-                        value="Confirm Password"
-                    />
-
-                    <TextInput
-                        type="password"
-                        id="password_confirmation"
-                        name="password_confirmation"
-                        value={data.password_confirmation}
-                        className="mt-1 block w-full"
-                        autoComplete="new-password"
-                        onChange={(e) =>
-                            setData('password_confirmation', e.target.value)
-                        }
-                    />
-
-                    <InputError
-                        message={errors.password_confirmation}
-                        className="mt-2"
-                    />
-                </div>
-
-                <div className="mt-4 flex items-center justify-end">
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Reset Password
-                    </PrimaryButton>
-                </div>
+            <Head title="Buat password baru" />
+            <h1 className="text-2xl font-extrabold text-slate-900">Buat password baru</h1>
+            <p className="mb-6 mt-2 text-sm leading-6 text-slate-500">Simpan password baru untuk melanjutkan aktivitas belajarmu.</p>
+            <form onSubmit={submit} className="space-y-4" aria-busy={form.processing}>
+                <Field label="Email akun" field="email" type="email" form={form} autoComplete="username" disabled={form.processing} />
+                <Field label="Password baru" field="password" type="password" form={form} minLength={8} autoComplete="new-password" disabled={form.processing} autoFocus hint="Gunakan minimal 8 karakter." />
+                <Field label="Ulangi password baru" field="password_confirmation" type="password" form={form} minLength={8} autoComplete="new-password" disabled={form.processing} />
+                <Notice error>{form.errors.token}</Notice>
+                <button className="button-primary w-full" type="submit" disabled={form.processing}>{form.processing ? 'Menyimpan...' : 'Simpan password baru'}</button>
+                <Link href={route('password.request')} className="block text-center text-sm font-semibold text-teal-700">Tautan kedaluwarsa? Minta kode pemulihan</Link>
             </form>
         </GuestLayout>
     );

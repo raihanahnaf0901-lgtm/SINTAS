@@ -3,95 +3,44 @@
 namespace Database\Seeders;
 
 use App\Models\Guru;
-use App\Models\Jadwal;
-use App\Models\KeanggotaanRuangMapel;
 use App\Models\Kelas;
+use App\Models\KelasMapel;
 use App\Models\Mapel;
-use App\Models\RuangMapel;
 use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 
 class DummyDataSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        $kelas = Kelas::query()->firstOrCreate([
-            'nama_kelas' => '10 Akuntansi 1',
-        ], [
-            'tingkat' => '10',
+        $class = Kelas::query()->firstOrCreate(['nama_kelas' => '10 Akuntansi 1'], [
+            'tahun_ajaran' => '2026/2027', 'status' => 'aktif',
         ]);
-
-        $siswaUser = User::query()
-            ->whereIn('email', ['raihan@belajar.id', 'raihan@sintas.test'])
-            ->first() ?? new User;
-
-        $siswaUser->fill([
-            'name' => 'Raihan Ahnaf',
-            'email' => 'raihan@belajar.id',
-            'password' => Hash::make('password'),
-            'role' => 'siswa',
-        ])->save();
-
-        $siswa = Siswa::query()->updateOrCreate([
-            'nis' => '12345',
-        ], [
-            'user_id' => $siswaUser->id,
-            'kelas_id' => $kelas->id,
-            'nama_lengkap' => 'Raihan Ahnaf',
+        $student = User::query()->firstOrCreate(['email' => 'siswa@sintas.test'], [
+            'name' => 'Siswa Contoh', 'username' => 'siswa_contoh', 'password' => 'password',
+            'role' => 'siswa', 'status' => 'aktif', 'email_verified_at' => now(),
         ]);
-
-        $guruUser = User::query()->firstOrCreate([
-            'email' => 'budi@sintas.test',
-        ], [
-            'name' => 'Budi Santoso',
-            'password' => Hash::make('password'),
-            'role' => 'guru',
+        Siswa::query()->firstOrCreate(['user_id' => $student->id], [
+            'nama_lengkap' => $student->name, 'nis' => 'DEMO-001', 'kelas_id' => $class->id,
         ]);
-
-        $guru = Guru::query()->firstOrCreate([
-            'nip' => '19850101',
-        ], [
-            'user_id' => $guruUser->id,
-            'nama' => 'Budi Santoso',
-            'gelar' => 'S.Pd',
+        $teachers = [];
+        foreach (['guru_mapel' => 'Guru Mapel Contoh', 'guru_piket' => 'Guru Piket Contoh'] as $type => $name) {
+            $user = User::query()->firstOrCreate(['email' => $type.'@sintas.test'], [
+                'name' => $name, 'username' => $type.'_contoh', 'password' => 'password',
+                'role' => 'guru', 'status' => 'aktif', 'email_verified_at' => now(),
+            ]);
+            $teachers[$type] = Guru::query()->firstOrCreate(['user_id' => $user->id], [
+                'nama_lengkap' => $name, 'nip' => 'DEMO-'.$type, 'jenis_guru' => $type, 'gelar' => 'S.Pd',
+            ]);
+        }
+        $mapel = Mapel::query()->firstOrCreate(['nama_mapel' => 'Matematika']);
+        $kelas = KelasMapel::query()->firstOrCreate(['kode_kelas' => 'DEMO-MTK'], [
+            'mapel_id' => $mapel->id, 'guru_pembuat_id' => $teachers['guru_mapel']->id,
+            'nama_kelas_mapel' => 'Matematika - 10 Akuntansi 1',
         ]);
-
-        $mapel = Mapel::query()->firstOrCreate([
-            'kode_mapel' => 'MTK',
-        ], [
-            'nama_mapel' => 'Matematika',
-            'kelompok' => 'Wajib',
-        ]);
-
-        Jadwal::query()->firstOrCreate([
-            'kelas_id' => $kelas->id,
-            'mapel_id' => $mapel->id,
-            'guru_id' => $guru->id,
-            'hari' => 'Senin',
-            'jam_mulai' => '07:00:00',
-        ], [
-            'jam_selesai' => '08:30:00',
-            'tahun_ajaran' => '2026/2027',
-            'semester' => 'ganjil',
-        ]);
-
-        $ruangMapel = RuangMapel::query()->firstOrCreate([
-            'mapel_id' => $mapel->id,
-            'guru_id' => $guru->id,
-            'kelas_id' => $kelas->id,
-        ], [
-            'nama_ruang' => 'Matematika - 10 Akuntansi 1',
-            'kode' => 'RM-MTK10A1',
-        ]);
-
-        KeanggotaanRuangMapel::query()->firstOrCreate([
-            'ruang_mapel_id' => $ruangMapel->id,
-            'siswa_id' => $siswa->id,
+        $kelas->whitelist()->firstOrCreate(['guru_id' => $teachers['guru_piket']->id], [
+            'ditambahkan_oleh' => $teachers['guru_mapel']->id, 'status' => 'aktif',
         ]);
     }
 }

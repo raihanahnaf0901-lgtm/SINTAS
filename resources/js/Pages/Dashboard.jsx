@@ -51,8 +51,8 @@ export default function Dashboard({ summaries, activities, subjects }) {
                     <article key={summary.label} className="surface p-3 sm:p-5">
                         <div className="flex items-center justify-between gap-2"><h3 className="min-h-8 text-[10px] font-semibold text-slate-500 sm:min-h-0 sm:text-xs">{summary.label}</h3><span className={`hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:flex ${summary.color}`}><Icon name={summary.icon} className="h-[18px] w-[18px]" /></span></div>
                         <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">{summary.completed}<span className="ml-1 text-[10px] font-medium text-slate-400 sm:text-sm">/ {summary.total}</span></p>
-                        <div className="mt-3 flex items-center justify-between text-[10px] sm:mt-4 sm:text-[11px]"><span className="hidden text-slate-500 sm:inline">Sudah selesai</span><span className="font-bold text-slate-700">{Math.round(summary.completed / summary.total * 100)}%</span></div>
-                        <div role="progressbar" aria-label={summary.label} aria-valuenow={summary.completed} aria-valuemin={0} aria-valuemax={summary.total} className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${summary.bar}`} style={{ width: `${summary.completed / summary.total * 100}%` }} /></div>
+                        <div className="mt-3 flex items-center justify-between text-[10px] sm:mt-4 sm:text-[11px]"><span className="hidden text-slate-500 sm:inline">Sudah selesai</span><span className="font-bold text-slate-700">{summary.total ? Math.round(summary.completed / summary.total * 100) : 0}%</span></div>
+                        <div role="progressbar" aria-label={summary.label} aria-valuenow={summary.completed} aria-valuemin={0} aria-valuemax={summary.total || 1} className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${summary.bar}`} style={{ width: `${summary.total ? summary.completed / summary.total * 100 : 0}%` }} /></div>
                     </article>
                 ))}
             </div>

@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Guru;
+use App\Models\OtpVerification;
 use App\Models\Siswa;
-use App\Models\SiswaLoginCode;
-use App\Models\User;
-use App\Notifications\KodeVerifikasiLoginSiswa;
+use App\Notifications\KodeVerifikasiAkun;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -15,147 +15,57 @@ class SiswaLoginCodeControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_valid_belajar_id_credentials_send_a_hashed_login_code(): void
+    public function test_gmail_credentials_send_a_hashed_purpose_scoped_code(): void
     {
-        $user = $this->createStudent();
-        $this->freezeTime();
         Notification::fake();
-
-        $response = $this->postJson(route('siswa-login-code.store'), [
-            'email' => ' SISWA@BELAJAR.ID ',
-            'password' => 'password',
-        ]);
-
-        $response
-            ->assertStatus(202)
-            ->assertJsonPath('message', 'Kode verifikasi telah dikirim ke email belajar.id Anda.')
-            ->assertJsonPath('expires_in_minutes', 10);
+        $user = Siswa::factory()->create()->user;
+        $user->update(['email' => 'siswa@gmail.com']);
+        $this->postJson(route('siswa-login-code.store'), ['email' => ' SISWA@GMAIL.COM ', 'password' => 'password'])
+            ->assertAccepted()->assertJsonPath('expires_in_minutes', 10);
         $this->assertGuest();
-
-        $loginCode = SiswaLoginCode::query()->sole();
-        $this->assertSame($user->id, $loginCode->user_id);
-        $this->assertSame(
-            now()->addMinutes(10)->format('Y-m-d H:i:s'),
-            $loginCode->expires_at->format('Y-m-d H:i:s'),
-        );
-        $this->assertNull($loginCode->used_at);
-
-        Notification::assertSentTo(
-            $user,
-            KodeVerifikasiLoginSiswa::class,
-            function (KodeVerifikasiLoginSiswa $notification) use ($loginCode): bool {
-                return preg_match('/^\d{6}$/', $notification->code) === 1
-                    && Hash::check($notification->code, $loginCode->code_hash)
-                    && $notification->code !== $loginCode->code_hash;
-            },
-        );
+        $record = OtpVerification::sole();
+        $this->assertSame('login', $record->purpose);
+        $this->assertSame($user->id, $record->user_id);
+        Notification::assertSentTo($user, KodeVerifikasiAkun::class,
+            fn ($notification) => Hash::check($notification->code, $record->code_hash) && $notification->purpose === 'login');
     }
 
-    public function test_wrong_password_does_not_send_or_store_a_code(): void
+    public function test_wrong_password_does_not_issue_an_otp(): void
     {
-        $this->createStudent();
         Notification::fake();
+        $user = Siswa::factory()->create()->user;
+        $this->postJson(route('siswa-login-code.store'), ['email' => $user->email, 'password' => 'wrong'])->assertUnprocessable();
+        Notification::assertNothingSent();
+        $this->assertDatabaseCount('otp_verifications', 0);
+    }
 
-        $response = $this->postJson(route('siswa-login-code.store'), [
-            'email' => 'siswa@belajar.id',
-            'password' => 'password-salah',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.email.0', 'Email atau password siswa tidak cocok.');
-        $this->assertDatabaseCount('siswa_login_codes', 0);
+    public function test_teacher_cannot_request_a_student_code(): void
+    {
+        Notification::fake();
+        $user = Guru::factory()->create()->user;
+        $this->postJson(route('siswa-login-code.store'), ['email' => $user->email, 'password' => 'password'])->assertUnprocessable();
         Notification::assertNothingSent();
     }
 
-    public function test_non_belajar_id_email_is_rejected(): void
+    public function test_resend_invalidates_previous_code_and_is_rate_limited(): void
     {
         Notification::fake();
-
-        $response = $this->postJson(route('siswa-login-code.store'), [
-            'email' => 'siswa@gmail.com',
-            'password' => 'password',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.email.0', 'Siswa wajib menggunakan email dengan domain @belajar.id.');
-        $this->assertDatabaseCount('siswa_login_codes', 0);
-        Notification::assertNothingSent();
+        $user = Siswa::factory()->create()->user;
+        $data = ['email' => $user->email, 'password' => 'password'];
+        $this->postJson(route('siswa-login-code.store'), $data)->assertAccepted();
+        $first = OtpVerification::sole();
+        $this->postJson(route('siswa-login-code.store'), $data)->assertAccepted();
+        $this->assertNotNull($first->fresh()->used_at);
+        $this->postJson(route('siswa-login-code.store'), $data)->assertAccepted();
+        $this->postJson(route('siswa-login-code.store'), $data)->assertUnprocessable();
+        $this->assertSame(1, OtpVerification::whereNull('used_at')->count());
     }
 
-    public function test_non_student_account_cannot_request_a_student_login_code(): void
+    public function test_failed_mail_delivery_invalidates_the_code(): void
     {
-        User::factory()->create([
-            'email' => 'guru@belajar.id',
-            'role' => 'guru',
-        ]);
-        Notification::fake();
-
-        $response = $this->postJson(route('siswa-login-code.store'), [
-            'email' => 'guru@belajar.id',
-            'password' => 'password',
-        ]);
-
-        $response
-            ->assertUnprocessable()
-            ->assertJsonPath('errors.email.0', 'Email atau password siswa tidak cocok.');
-        $this->assertDatabaseCount('siswa_login_codes', 0);
-        Notification::assertNothingSent();
-    }
-
-    public function test_requesting_a_new_code_invalidates_the_previous_code(): void
-    {
-        $user = $this->createStudent();
-        Notification::fake();
-
-        $this->postJson(route('siswa-login-code.store'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertStatus(202);
-
-        $this->postJson(route('siswa-login-code.store'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertStatus(202);
-
-        $codes = SiswaLoginCode::query()->oldest('id')->get();
-        $this->assertCount(2, $codes);
-        $this->assertNotNull($codes[0]->used_at);
-        $this->assertNull($codes[1]->used_at);
-        Notification::assertSentTimes(KodeVerifikasiLoginSiswa::class, 2);
-    }
-
-    public function test_code_requests_are_rate_limited(): void
-    {
-        $user = $this->createStudent('dibatasi@belajar.id');
-        Notification::fake();
-
-        for ($attempt = 1; $attempt <= 3; $attempt++) {
-            $this->postJson(route('siswa-login-code.store'), [
-                'email' => $user->email,
-                'password' => 'password',
-            ])->assertStatus(202);
-        }
-
-        $this->postJson(route('siswa-login-code.store'), [
-            'email' => $user->email,
-            'password' => 'password',
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors('email');
-
-        $this->assertDatabaseCount('siswa_login_codes', 3);
-        Notification::assertSentTimes(KodeVerifikasiLoginSiswa::class, 3);
-    }
-
-    private function createStudent(string $email = 'siswa@belajar.id'): User
-    {
-        $user = User::factory()->create([
-            'email' => $email,
-            'role' => 'siswa',
-        ]);
-        Siswa::factory()->for($user)->create();
-
-        return $user;
+        Notification::shouldReceive('send')->once()->andThrow(new \RuntimeException('Mail unavailable'));
+        $user = Siswa::factory()->create()->user;
+        $this->postJson(route('siswa-login-code.store'), ['email' => $user->email, 'password' => 'password'])->assertUnprocessable();
+        $this->assertSame(0, OtpVerification::whereNull('used_at')->count());
     }
 }

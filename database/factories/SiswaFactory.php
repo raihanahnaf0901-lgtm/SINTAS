@@ -23,7 +23,6 @@ class SiswaFactory extends Factory
             'kelas_id' => null,
             'nis' => fake()->unique()->numerify('########'),
             'nama_lengkap' => fake()->name(),
-            'status' => 'aktif',
         ];
     }
 }

@@ -20,7 +20,8 @@ class GuruFactory extends Factory
     {
         return [
             'user_id' => User::factory()->state(['role' => 'guru']),
-            'nama' => fake()->name(),
+            'nama_lengkap' => fake()->name(),
+            'jenis_guru' => 'guru_mapel',
             'gelar' => fake()->randomElement(['S.Pd', 'M.Pd', 'S.Si']),
             'nip' => fake()->unique()->numerify('##################'),
         ];

@@ -2,36 +2,21 @@
 
 namespace App\Models;
 
-use Database\Factories\JadwalFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Jadwal extends Model
 {
-    /** @use HasFactory<JadwalFactory> */
     use HasFactory;
 
-    protected $fillable = [
-        'kelas_id',
-        'mapel_id',
-        'guru_id',
-        'hari',
-        'jam_mulai',
-        'jam_selesai',
-        'ruangan',
-        'tahun_ajaran',
-        'semester',
-    ];
+    protected $table = 'jadwal';
 
-    public function kelas(): BelongsTo
-    {
-        return $this->belongsTo(Kelas::class);
-    }
+    protected $fillable = ['kelas_mapel_id', 'guru_id', 'hari', 'jam_mulai', 'jam_selesai', 'ruangan'];
 
-    public function mapel(): BelongsTo
+    public function kelasMapel(): BelongsTo
     {
-        return $this->belongsTo(Mapel::class);
+        return $this->belongsTo(KelasMapel::class);
     }
 
     public function guru(): BelongsTo
