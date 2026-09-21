@@ -13,7 +13,7 @@ class Ujian extends Model
 
     protected $table = 'ujian';
 
-    protected $fillable = ['kelas_mapel_id', 'guru_id', 'jenis_ujian', 'judul', 'tanggal', 'keterangan'];
+    protected $fillable = ['kelas_mapel_id', 'guru_id', 'jenis_ujian', 'judul', 'tanggal', 'keterangan', 'google_form_url'];
 
     protected function casts(): array
     {

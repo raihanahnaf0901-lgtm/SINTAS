@@ -19,6 +19,8 @@ Route::middleware('guest')->group(function () {
     Route::post('register', [OtpAuthController::class, 'register'])->middleware('throttle:5,1');
     Route::post('register/siswa/kode', [OtpAuthController::class, 'register'])->middleware('throttle:5,1')->name('siswa-registration-code.store');
     Route::post('register/siswa/verifikasi', [OtpAuthController::class, 'verifyRegister'])->middleware('throttle:10,1')->name('siswa-registration.verify');
+    Route::post('register/guru/kode', [OtpAuthController::class, 'registerGuru'])->middleware('throttle:5,1')->name('guru-registration-code.store');
+    Route::post('register/guru/verifikasi', [OtpAuthController::class, 'verifyGuruRegister'])->middleware('throttle:10,1')->name('guru-registration.verify');
     Route::post('password/otp/kode', [OtpAuthController::class, 'resetCode'])->middleware('throttle:5,1')->name('password.otp.request');
     Route::post('password/otp/reset', [OtpAuthController::class, 'resetPassword'])->middleware('throttle:10,1')->name('password.otp.reset');
 

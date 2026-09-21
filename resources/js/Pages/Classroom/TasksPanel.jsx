@@ -1,13 +1,26 @@
 import { useState } from 'react';
 import Icon from '@/Components/Icon';
+import { Link } from '@inertiajs/react';
+import { GradeEditor, GradeSummary } from './GradesPanel';
 import { Button, EmptyState, Field, LoadingState, Notice, Pager, formatDate, toDateTimeInput, useApiData, useApiForm } from '@/Components/AcademicUI';
 
 const taskNames = { tugas: 'Tugas', pr: 'Pekerjaan rumah', proyek: 'Proyek' };
 const submissionNames = { belum: 'Belum dikumpulkan', dikumpulkan: 'Dikumpulkan', terlambat: 'Dikumpulkan terlambat' };
 
-function DownloadLink({ submission }) {
+function SubmittedFileLink({ submission }) {
     if (!submission?.has_file) return null;
-    return <a href={`/api/v1/pengumpulan/${submission.id}/file`} className="inline-flex self-start items-center gap-2 text-sm font-bold text-teal-700 hover:underline" download><Icon name="clipboard" className="h-4 w-4" />Unduh berkas</a>;
+    return <a href={`/api/v1/pengumpulan/${submission.id}/file`} className="inline-flex self-start items-center gap-2 text-sm font-semibold text-slate-600 hover:underline" download><Icon name="clipboard" className="h-4 w-4" />Periksa berkas tugas</a>;
+}
+
+export function SubmissionAssessment({ submission, canManage, editing, onEdit }) {
+    return <div className="flex flex-col gap-3">
+        <GradeSummary grade={submission.penilaian} />
+        <div className="flex flex-wrap items-center gap-4">
+            {canManage && <Button disabled={editing} onClick={onEdit}>{submission.penilaian ? 'Edit nilai' : 'Beri nilai'}</Button>}
+            <SubmittedFileLink submission={submission} />
+        </div>
+        {!canManage && <p className="text-xs text-slate-500">Penilaian hanya dapat diubah oleh guru mapel yang berizin pada kelas aktif.</p>}
+    </div>;
 }
 
 function TaskForm({ item, path, onSaved, onCancel }) {
@@ -73,15 +86,18 @@ function SubmissionForm({ task, path, submission, onSaved }) {
     );
 }
 
-function SubmissionList({ path, task }) {
+function SubmissionList({ path, task, canManage, kelasId }) {
     const [page, setPage] = useState(1);
+    const [editingId, setEditingId] = useState(null);
+    const [success, setSuccess] = useState('');
     const { data, loading, error, reload } = useApiData(`${path}/${task.id}/pengumpulan?page=${page}`);
     const records = data?.data;
     const items = records?.data || [];
 
     return (
         <div className="flex flex-col gap-4 border-t border-slate-100 pt-5">
-            <h4 className="text-sm font-bold text-slate-900">Pengumpulan siswa{records ? ` (${records.total})` : ''}</h4>
+            <h4 className="text-sm font-bold text-slate-900">Penilaian pengumpulan siswa{records ? ` (${records.total})` : ''}</h4>
+            <Notice message={success} tone="success" />
             {loading ? <LoadingState /> : error ? <div className="flex flex-col items-start gap-3"><Notice message={error} /><Button type="button" variant="secondary" onClick={reload}>Coba lagi</Button></div> : !items.length ? <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Belum ada siswa yang mengumpulkan tugas ini.</p> : (
                 <>
                     <div className="flex flex-col gap-3">
@@ -90,18 +106,22 @@ function SubmissionList({ path, task }) {
                                 <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold text-slate-900">{item.siswa?.nama_lengkap || 'Siswa'}</p><p className="mt-1 text-xs text-slate-500">NIS/NISN: {item.siswa?.nis || '-'}</p></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.status === 'terlambat' ? 'bg-amber-50 text-amber-800' : 'bg-teal-50 text-teal-700'}`}>{submissionNames[item.status] || item.status}</span></div>
                                 <p className="text-xs text-slate-500">Dikirim: {formatDate(item.submitted_at, true)}</p>
                                 {item.catatan_siswa && <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{item.catatan_siswa}</p>}
-                                <DownloadLink submission={item} />
+                                {canManage && editingId === item.id ? <GradeEditor
+                                    base={`/api/v1/kelas-mapel/${kelasId}`} grade={item.penilaian}
+                                    target={{ student: { id: item.siswa_id, label: item.siswa?.nama_lengkap || 'Siswa' }, activity: { id: task.id, label: task.judul } }}
+                                    onCancel={() => setEditingId(null)} onSaved={() => { setEditingId(null); setSuccess('Nilai berhasil disimpan. Rekap kelas menggunakan nilai terbaru.'); reload(); }}
+                                /> : <SubmissionAssessment submission={item} canManage={canManage} editing={editingId !== null} onEdit={() => { setSuccess(''); setEditingId(item.id); }} />}
                             </div>
                         ))}
                     </div>
-                    <Pager meta={records} onPage={setPage} />
+                    <Pager meta={records} onPage={(nextPage) => { setEditingId(null); setSuccess(''); setPage(nextPage); }} />
                 </>
             )}
         </div>
     );
 }
 
-function TaskCard({ task, path, permissions, canManage, canSubmit, editorOpen, onEdit, onSubmitted }) {
+export function TaskCard({ task, path, permissions, canManage, canSubmit, editorOpen, onEdit, onSubmitted }) {
     const [expanded, setExpanded] = useState(false);
     const submission = task.pengumpulan?.[0];
     const grade = task.penilaian?.[0];
@@ -119,15 +139,15 @@ function TaskCard({ task, path, permissions, canManage, canSubmit, editorOpen, o
                 </div>
             </div>
             {task.deskripsi && <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{task.deskripsi}</p>}
-            {grade && !permissions.isTeacher && <div className="rounded-xl bg-teal-50 p-4"><p className="text-sm text-teal-800">Nilai kamu: <span className="text-lg font-bold">{Number(grade.nilai).toLocaleString('id-ID', { maximumFractionDigits: 2 })}</span></p>{grade.catatan && <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-teal-900">{grade.catatan}</p>}</div>}
+            {(grade || submission) && !permissions.isTeacher && <GradeSummary grade={grade} />}
             <div className="flex flex-wrap items-center gap-4">
-                <button type="button" className="text-sm font-bold text-teal-700 hover:underline" aria-expanded={expanded} aria-controls={`submission-${task.id}`} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Tutup pengumpulan' : permissions.isTeacher ? 'Lihat pengumpulan siswa' : submission || grade ? 'Lihat pengumpulan' : canSubmit ? 'Kumpulkan tugas' : 'Lihat detail pengumpulan'}</button>
+                <button type="button" className="text-sm font-bold text-teal-700 hover:underline" aria-expanded={expanded} aria-controls={`submission-${task.id}`} onClick={() => setExpanded((value) => !value)}>{expanded ? 'Tutup detail' : permissions.isTeacher ? 'Penilaian' : submission || grade ? 'Lihat detail pengumpulan' : canSubmit ? 'Kumpulkan tugas' : 'Lihat detail pengumpulan'}</button>
                 {canManage && !editorOpen && <button type="button" className="text-sm font-semibold text-slate-500 hover:text-teal-700" onClick={() => onEdit(task)}>Edit tugas</button>}
             </div>
             {expanded && <div id={`submission-${task.id}`} className="flex flex-col gap-4">
-                {permissions.isTeacher ? <SubmissionList path={path} task={task} /> : (
+                {permissions.isTeacher ? <SubmissionList path={path} task={task} canManage={canManage} kelasId={task.kelas_mapel_id} /> : (
                     <>
-                        {submission && <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-4"><p className="text-sm font-bold text-slate-900">Pengumpulan terakhir</p><p className="text-xs text-slate-500">Dikirim: {formatDate(submission.submitted_at, true)}</p>{submission.catatan_siswa && <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{submission.catatan_siswa}</p>}<DownloadLink submission={submission} /></div>}
+                        {submission && <div className="flex flex-col gap-3 rounded-xl bg-slate-50 p-4"><p className="text-sm font-bold text-slate-900">Pengumpulan terakhir</p><p className="text-xs text-slate-500">Dikirim: {formatDate(submission.submitted_at, true)}</p>{submission.catatan_siswa && <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-600">{submission.catatan_siswa}</p>}</div>}
                         {grade ? <p className="text-sm text-slate-500">Tugas yang sudah dinilai tidak dapat dikumpulkan ulang.</p> : canSubmit ? <SubmissionForm key={`${task.id}-${submission?.updated_at || 'new'}`} task={task} path={path} submission={submission} onSaved={onSubmitted} /> : <p className="text-sm text-slate-500">Pengumpulan tidak tersedia untuk kelas ini.</p>}
                     </>
                 )}
@@ -157,6 +177,7 @@ export default function TasksPanel({ kelasMapel, permissions }) {
         <section className="flex flex-col gap-5" aria-label="Tugas">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-bold text-slate-900">Tugas</h2><p className="mt-1 text-sm text-slate-500">{permissions.isTeacher ? 'Kelola tugas dan pantau hasil pekerjaan siswa.' : 'Lihat petunjuk, kumpulkan pekerjaan, dan periksa nilaimu.'}</p></div>{canManage && !editor && <Button type="button" onClick={() => { setSuccess(''); setEditor({}); }}>Buat tugas</Button>}</div>
             <Notice message={success} tone="success" />
+            {permissions.viewRekap && <div className="surface flex flex-wrap items-center justify-between gap-3 p-4"><p className="text-sm text-slate-600">Nilai tugas dapat digabung dengan nilai ujian sebagai bahan nilai rapor.</p><Link className="text-sm font-bold text-teal-700 hover:underline" href={route('subjects.section', { subject: kelasMapel.id, section: 'rekap' })}>Rekap akhir semester</Link></div>}
             {canManage && editor && <TaskForm key={editor.id || 'new'} item={editor.id ? editor : null} path={path} onSaved={() => saved('Tugas berhasil disimpan.')} onCancel={() => setEditor(null)} />}
             {loading ? <LoadingState /> : error ? <div className="surface flex flex-col items-start gap-3 p-5"><Notice message={error} /><Button type="button" variant="secondary" onClick={reload}>Coba lagi</Button></div> : !items.length ? <EmptyState title="Belum ada tugas" description="Tugas, PR, dan proyek akan muncul setelah ditambahkan guru." /> : (
                 <div className="flex flex-col gap-4">

@@ -12,7 +12,9 @@ use App\Models\Tugas;
 use App\Models\Ujian;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class AkademikTest extends TestCase
@@ -94,6 +96,62 @@ class AkademikTest extends TestCase
         $this->postJson('/api/v1/kelas-mapel/'.$kelas->id.'/tugas/'.$task->id.'/pengumpulan', ['catatan_siswa' => 'Diubah'])->assertUnprocessable();
     }
 
+    #[TestWith([true, ''])]
+    #[TestWith([true, 'Sudah mengerjakan tugas'])]
+    #[TestWith([false, 'Jawaban tertulis tanpa berkas'])]
+    public function test_submission_accepts_a_file_or_answer_with_optional_notes(bool $withFile, string $note): void
+    {
+        Storage::fake('local');
+        $kelas = KelasMapel::factory()->create();
+        $siswa = $this->member($kelas);
+        $task = Tugas::factory()->create(['kelas_mapel_id' => $kelas->id, 'deadline' => now()->addDay()]);
+        $data = ['catatan_siswa' => $note];
+        if ($withFile) {
+            $data['file'] = UploadedFile::fake()->create('jawaban.png', 10240, 'image/png');
+        }
+
+        $this->actingAs($siswa->user)->post('/api/v1/kelas-mapel/'.$kelas->id.'/tugas/'.$task->id.'/pengumpulan', $data, ['Accept' => 'application/json'])
+            ->assertCreated()->assertJsonPath('data.status', 'dikumpulkan')->assertJsonPath('data.has_file', $withFile);
+
+        $submission = PengumpulanTugas::sole();
+        $this->assertSame($note === '' ? null : $note, $submission->catatan_siswa);
+        if ($withFile) {
+            Storage::disk('local')->assertExists($submission->file_path);
+        } else {
+            $this->assertNull($submission->file_path);
+        }
+    }
+
+    #[TestWith(['empty', 'Pilih berkas tugas atau tulis jawaban sebelum mengumpulkan.'])]
+    #[TestWith(['size', 'Ukuran berkas tugas maksimal 10 MB.'])]
+    #[TestWith(['type', 'Format berkas harus PDF, Word, JPG, PNG, atau ZIP.'])]
+    #[TestWith(['upload', 'Berkas gagal diterima server. Periksa ukuran berkas dan batas upload PHP, lalu pilih ulang berkas.'])]
+    #[TestWith(['temporary_directory', 'Folder sementara upload server tidak tersedia. Hubungi pengelola SINTAS untuk memperbaiki konfigurasi PHP.'])]
+    #[TestWith(['write', 'Server tidak dapat menulis berkas. Hubungi pengelola SINTAS untuk memeriksa penyimpanan server.'])]
+    #[TestWith(['partial', 'Berkas hanya terkirim sebagian. Pilih ulang berkas dan coba kirim lagi.'])]
+    public function test_rejected_submission_returns_a_specific_file_error(string $reason, string $message): void
+    {
+        Storage::fake('local');
+        $kelas = KelasMapel::factory()->create();
+        $siswa = $this->member($kelas);
+        $task = Tugas::factory()->create(['kelas_mapel_id' => $kelas->id]);
+        $file = match ($reason) {
+            'size' => UploadedFile::fake()->create('jawaban.pdf', 10241, 'application/pdf'),
+            'type' => UploadedFile::fake()->create('jawaban.exe', 10, 'application/x-msdownload'),
+            'upload' => new UploadedFile('', 'jawaban.png', 'image/png', UPLOAD_ERR_INI_SIZE, true),
+            'temporary_directory' => new UploadedFile('', 'jawaban.png', 'image/png', UPLOAD_ERR_NO_TMP_DIR, true),
+            'write' => new UploadedFile('', 'jawaban.png', 'image/png', UPLOAD_ERR_CANT_WRITE, true),
+            'partial' => new UploadedFile('', 'jawaban.png', 'image/png', UPLOAD_ERR_PARTIAL, true),
+            default => null,
+        };
+
+        $this->actingAs($siswa->user)->post('/api/v1/kelas-mapel/'.$kelas->id.'/tugas/'.$task->id.'/pengumpulan', ['file' => $file], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonPath('errors.file.0', $message);
+
+        $this->assertDatabaseCount('pengumpulan_tugas', 0);
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
     public function test_rekap_combines_average_with_persisted_manual_scores_and_checks_weights(): void
     {
         $kelas = KelasMapel::factory()->create();
@@ -124,6 +182,45 @@ class AkademikTest extends TestCase
         $this->actingAs($siswa->user)->putJson($base.'/'.$id.'/komponen/'.$part.'/manual', ['siswa_id' => $siswa->id, 'nilai' => 100])->assertForbidden();
     }
 
+    public function test_upload_rejection_is_logged_without_the_students_answer_or_filename(): void
+    {
+        Log::spy();
+        $kelas = KelasMapel::factory()->create();
+        $siswa = $this->member($kelas);
+        $task = Tugas::factory()->create(['kelas_mapel_id' => $kelas->id]);
+        $path = 'api/v1/kelas-mapel/'.$kelas->id.'/tugas/'.$task->id.'/pengumpulan';
+
+        $this->actingAs($siswa->user)->post('/'.$path, [
+            'file' => new UploadedFile('', 'jawaban-pribadi.png', 'image/png', UPLOAD_ERR_INI_SIZE, true),
+            'catatan_siswa' => 'Jawaban siswa yang tidak boleh masuk log.',
+        ], ['Accept' => 'application/json'])->assertUnprocessable()->assertJsonValidationErrors('file');
+
+        Log::shouldHaveReceived('notice')->once()->with('Pengumpulan tugas ditolak oleh validasi.', [
+            'path' => $path, 'fields' => ['file'], 'rules' => ['file' => ['uploaded' => []]],
+            'upload_error' => UPLOAD_ERR_INI_SIZE, 'file_size' => null,
+        ]);
+        $this->assertDatabaseCount('pengumpulan_tugas', 0);
+    }
+
+    public function test_real_png_contents_pass_mime_validation_with_optional_empty_notes(): void
+    {
+        Storage::fake('local');
+        $kelas = KelasMapel::factory()->create();
+        $student = $this->member($kelas);
+        $task = Tugas::factory()->create(['kelas_mapel_id' => $kelas->id]);
+        $contents = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a9X8AAAAASUVORK5CYII=');
+        $temporaryFile = UploadedFile::fake()->createWithContent('jawaban.png', $contents);
+        $file = new UploadedFile($temporaryFile->getPathname(), 'jawaban.png', 'image/png', UPLOAD_ERR_OK, true);
+
+        $this->actingAs($student->user)->post('/api/v1/kelas-mapel/'.$kelas->id.'/tugas/'.$task->id.'/pengumpulan', [
+            'file' => $file, 'catatan_siswa' => '',
+        ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.has_file', true);
+
+        $submission = PengumpulanTugas::sole();
+        $this->assertSame($contents, Storage::disk('local')->get($submission->file_path));
+        $this->assertNull($submission->catatan_siswa);
+    }
+
     public function test_notifications_are_scoped_to_current_user(): void
     {
         $one = Siswa::factory()->create()->user;
@@ -133,5 +230,31 @@ class AkademikTest extends TestCase
         $this->patchJson('/api/v1/notifikasi/'.$note->id.'/baca')->assertNotFound();
         $this->actingAs($one)->patchJson('/api/v1/notifikasi/'.$note->id.'/baca')->assertOk();
         $this->assertNotNull($note->fresh()->read_at);
+    }
+
+    public function test_new_task_notifies_only_accepted_students_and_can_be_marked_read(): void
+    {
+        $this->freezeTime();
+        $kelas = KelasMapel::factory()->create();
+        $student = $this->member($kelas);
+        $pending = $this->member($kelas);
+        $kelas->anggota()->where('siswa_id', $pending->id)->update(['status' => 'pending']);
+        $other = Siswa::factory()->create();
+
+        $taskId = $this->actingAs($kelas->pembuat->user)->postJson('/api/v1/kelas-mapel/'.$kelas->id.'/tugas', [
+            'judul' => 'Tugas terbaru', 'jenis' => 'tugas', 'deadline' => now()->addDay()->toDateTimeString(),
+        ])->assertCreated()->json('data.id');
+
+        $this->assertDatabaseCount('notifikasi', 1);
+        $notificationId = $this->actingAs($student->user)->getJson('/api/v1/notifikasi')
+            ->assertJsonPath('belum_dibaca', 1)->assertJsonCount(1, 'data.data')
+            ->assertJsonPath('data.data.0.pesan', 'Tugas terbaru')
+            ->assertJsonPath('data.data.0.data.kelas_mapel_id', $kelas->id)
+            ->assertJsonPath('data.data.0.data.tugas_id', $taskId)->json('data.data.0.id');
+        $this->patchJson('/api/v1/notifikasi/'.$notificationId.'/baca')->assertOk();
+        $this->getJson('/api/v1/notifikasi')->assertJsonPath('belum_dibaca', 0);
+        $this->assertNotNull(Notifikasi::findOrFail($notificationId)->read_at);
+        $this->actingAs($pending->user)->getJson('/api/v1/notifikasi')->assertJsonCount(0, 'data.data');
+        $this->actingAs($other->user)->getJson('/api/v1/notifikasi')->assertJsonCount(0, 'data.data');
     }
 }

@@ -22,14 +22,66 @@ class KelasMapelAccessTest extends TestCase
         $id = $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', [
             'mapel_id' => $mapel->id, 'nama_kelas_mapel' => 'Matematika X', 'kode_kelas' => 'mtk-123456',
             'guru_pembuat_id' => 999,
-        ])->assertCreated()->assertJsonPath('data.kode_kelas', 'MTK-123456')
+        ])->assertCreated()->assertJsonPath('data.mapel_id', $mapel->id)
             ->assertJsonPath('data.guru_pembuat_id', $guru->id)->json('data.id');
         $kelas = KelasMapel::findOrFail($id);
+        $this->assertNotSame('MTK-123456', $kelas->kode_kelas);
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{10}$/', $kelas->kode_kelas);
         $oldToken = $kelas->invite_token;
         $this->patchJson('/api/v1/kelas-mapel/'.$id, ['kode_kelas' => 'MTK-BARU', 'regenerate_invite' => true])
             ->assertOk()->assertJsonPath('data.kode_kelas', 'MTK-BARU');
         $this->assertNotSame($oldToken, $kelas->fresh()->invite_token);
         $this->getJson('/kelas-mapel/undangan/'.$oldToken)->assertNotFound();
+    }
+
+    public function test_teacher_creates_class_with_only_name_and_description_and_student_can_request_to_join(): void
+    {
+        $guru = Guru::factory()->create();
+        $student = Siswa::factory()->create();
+        $response = $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', [
+            'nama_kelas_mapel' => 'PIPAS X PPLG', 'deskripsi' => 'Ruang belajar PIPAS.',
+            'kode_kelas' => 'KODE-MANUAL', 'invite_token' => 'token-manual', 'guru_pembuat_id' => 999,
+        ])->assertCreated()->assertJsonPath('data.mapel.nama_mapel', 'PIPAS X PPLG')
+            ->assertJsonPath('data.deskripsi', 'Ruang belajar PIPAS.')
+            ->assertJsonPath('data.guru_pembuat_id', $guru->id);
+        $kelas = KelasMapel::findOrFail($response->json('data.id'));
+        $this->assertMatchesRegularExpression('/^[A-Z0-9]{10}$/', $kelas->kode_kelas);
+        $this->assertNotSame('KODE-MANUAL', $kelas->kode_kelas);
+        $this->assertNotSame('token-manual', $kelas->invite_token);
+        $this->assertDatabaseHas('mapel', ['id' => $kelas->mapel_id, 'nama_mapel' => 'PIPAS X PPLG']);
+        $this->assertDatabaseHas('whitelist_guru_kelas', ['kelas_mapel_id' => $kelas->id, 'guru_id' => $guru->id, 'status' => 'aktif']);
+        $this->getJson($response->json('data.link_undangan'))->assertOk()->assertJsonPath('data.mapel_id', $kelas->mapel_id);
+
+        $memberId = $this->actingAs($student->user)->postJson('/api/v1/kelas-mapel/gabung', [
+            'mapel_id' => $kelas->mapel_id, 'kode_kelas' => $response->json('data.kode_kelas'),
+        ])->assertCreated()->assertJsonPath('data.status', 'pending')->json('data.id');
+        $this->getJson('/api/v1/kelas-mapel/'.$kelas->id)->assertForbidden();
+        $this->actingAs($guru->user)->patchJson('/api/v1/kelas-mapel/'.$kelas->id.'/anggota/'.$memberId, ['status' => 'diterima'])->assertOk();
+        $this->actingAs($student->user)->getJson('/api/v1/kelas-mapel/'.$kelas->id)->assertOk();
+    }
+
+    public function test_same_class_name_reuses_subject_but_gets_a_different_generated_code(): void
+    {
+        $guru = Guru::factory()->create();
+        $mapel = Mapel::factory()->create(['nama_mapel' => 'PIPAS X PPLG']);
+        $this->actingAs($guru->user);
+        $first = $this->postJson('/api/v1/kelas-mapel', ['nama_kelas_mapel' => 'PIPAS X PPLG'])
+            ->assertCreated()->assertJsonPath('data.mapel_id', $mapel->id);
+        $second = $this->postJson('/api/v1/kelas-mapel', ['nama_kelas_mapel' => 'PIPAS X PPLG', 'mapel_id' => null])
+            ->assertCreated()->assertJsonPath('data.mapel_id', $mapel->id);
+
+        $this->assertDatabaseCount('mapel', 1);
+        $this->assertDatabaseCount('kelas_mapel', 2);
+        $this->assertNotSame($first->json('data.kode_kelas'), $second->json('data.kode_kelas'));
+    }
+
+    public function test_invalid_class_name_creates_neither_class_nor_subject(): void
+    {
+        $guru = Guru::factory()->create();
+        $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', ['nama_kelas_mapel' => '   '])
+            ->assertUnprocessable()->assertJsonValidationErrors('nama_kelas_mapel');
+        $this->assertDatabaseCount('mapel', 0);
+        $this->assertDatabaseCount('kelas_mapel', 0);
     }
 
     public function test_student_is_locked_out_until_owner_approves(): void

@@ -21,19 +21,33 @@ function RecordChoice({ label, path, selected, onChange, error, members = false 
     </div>;
 }
 
-function GradeEditor({ base, grade, onCancel, onSaved }) {
-    const [kind, setKind] = useState(grade?.ujian_id ? 'ujian' : 'tugas');
-    const [student, setStudent] = useState(grade ? { id: grade.siswa_id, label: grade.siswa?.nama_lengkap ?? 'Siswa' } : null);
-    const [activity, setActivity] = useState(grade ? { id: grade.tugas_id ?? grade.ujian_id, label: grade.tugas?.judul ?? grade.ujian?.judul ?? 'Aktivitas' } : null);
+export function GradeSummary({ grade, componentLabel = 'tugas' }) {
+    const hasGrade = grade?.nilai !== null && grade?.nilai !== undefined;
+    return <section aria-label="Penilaian" className="flex flex-col gap-2 rounded-xl bg-teal-50 p-4">
+        <h4 className="text-sm font-bold text-teal-900">Penilaian</h4>
+        {hasGrade ? <>
+            <p className="text-2xl font-extrabold text-teal-800">{Number(grade.nilai).toLocaleString('id-ID', { maximumFractionDigits: 2 })}<span className="ml-1 text-sm font-medium text-teal-700">/ 100</span></p>
+            {grade.catatan && <p className="whitespace-pre-wrap break-words text-sm text-teal-900">{grade.catatan}</p>}
+            <p className="text-xs text-teal-700">{grade.penilai?.nama_lengkap ? `Dinilai oleh ${grade.penilai.nama_lengkap}. ` : ''}{grade.dinilai_at ? `Diperbarui ${formatDate(grade.dinilai_at, true)}.` : ''}</p>
+            <p className="text-xs leading-5 text-teal-700">Nilai ini masuk komponen {componentLabel} pada rekap kelas jika guru menggunakan metode rata-rata.</p>
+        </> : <p className="text-sm text-teal-800">Menunggu penilaian guru.</p>}
+    </section>;
+}
+
+export function gradePayload({ kind, student, activity, data }) {
+    return { siswa_id: student.id, [`${kind}_id`]: activity.id, nilai: data.nilai, catatan: data.catatan };
+}
+
+export function GradeEditor({ base, grade, target, onCancel, onSaved }) {
+    const [kind, setKind] = useState(target?.kind ?? (grade?.ujian_id ? 'ujian' : 'tugas'));
+    const [student, setStudent] = useState(target?.student ?? (grade ? { id: grade.siswa_id, label: grade.siswa?.nama_lengkap ?? 'Siswa' } : null));
+    const [activity, setActivity] = useState(target?.activity ?? (grade ? { id: grade.tugas_id ?? grade.ujian_id, label: grade.tugas?.judul ?? grade.ujian?.judul ?? 'Aktivitas' } : null));
     const form = useApiForm({ nilai: grade?.nilai ?? '', catatan: grade?.catatan ?? '' });
 
     async function save(event) {
         event.preventDefault();
         if (!student || !activity) return;
-        const result = await form.submit('put', `${base}/penilaian`, {
-            siswa_id: student.id, [`${kind}_id`]: activity.id,
-            nilai: form.data.nilai, catatan: form.data.catatan,
-        });
+        const result = await form.submit('put', `${base}/penilaian`, gradePayload({ kind, student, activity, data: form.data }));
         if (result) onSaved();
     }
 
@@ -41,14 +55,14 @@ function GradeEditor({ base, grade, onCancel, onSaved }) {
         <div><h3 className="text-base font-bold text-slate-900">{grade ? 'Edit nilai' : 'Tambahkan nilai'}</h3><p className="mt-1 text-sm text-slate-500">Nilai untuk satu tugas atau ujian. Siswa akan mendapat pemberitahuan setelah nilai disimpan.</p>{!grade && <p className="mt-2 text-xs leading-6 text-slate-500">Jika siswa sudah memiliki nilai untuk aktivitas yang dipilih, nilai tersebut akan diperbarui.</p>}</div>
         <Notice message={form.errors._general} />
         <fieldset disabled={form.processing} className="space-y-5 disabled:opacity-60">
-            {grade ? <div className="rounded-xl bg-slate-50 p-4 text-sm"><p className="font-bold">{student.label}</p><p className="mt-1 text-slate-500">{kind === 'tugas' ? 'Tugas' : 'Ujian'} · {activity.label}</p></div> : <>
+            {grade || target ? <div className="rounded-xl bg-slate-50 p-4 text-sm"><p className="font-bold">{student.label}</p><p className="mt-1 text-slate-500">{kind === 'tugas' ? 'Tugas' : 'Ujian'} · {activity.label}</p></div> : <>
                 <RecordChoice label="Siswa" path={`${base}/anggota`} members selected={student} onChange={setStudent} error={form.errors.siswa_id} />
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Field label="Jenis penilaian"><select className="input" value={kind} onChange={(event) => { setKind(event.target.value); setActivity(null); }}><option value="tugas">Tugas</option><option value="ujian">Ujian</option></select></Field>
                     <RecordChoice key={kind} label={kind === 'tugas' ? 'Tugas' : 'Ujian'} path={`${base}/${kind}`} selected={activity} onChange={setActivity} error={form.errors[`${kind}_id`]} />
                 </div>
             </>}
-            {grade && <Notice message={form.errors.siswa_id || form.errors.tugas_id || form.errors.ujian_id} />}
+            {(grade || target) && <Notice message={form.errors.siswa_id || form.errors.tugas_id || form.errors.ujian_id} />}
             <Field label="Nilai (0–100)" error={form.errors.nilai}><input className="input max-w-xs" type="number" min="0" max="100" step="0.01" required value={form.data.nilai} onChange={(event) => form.setData('nilai', event.target.value)} /></Field>
             <Field label="Catatan untuk siswa (opsional)" error={form.errors.catatan}><textarea className="input" rows="3" maxLength={10000} value={form.data.catatan} onChange={(event) => form.setData('catatan', event.target.value)} /></Field>
             <div className="flex flex-wrap gap-3"><Button type="submit" disabled={form.processing || !student || !activity}>{form.processing ? 'Menyimpan...' : 'Simpan nilai'}</Button><Button variant="secondary" onClick={onCancel}>Batal</Button></div>

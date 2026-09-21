@@ -23,7 +23,7 @@ export default function ForgotPassword() {
             form.setData('code', '');
             setMessage(response.data.message);
             setStep('code');
-            startCooldown();
+            startCooldown(response.data.resend_after_seconds ?? 15);
         } catch (error) {
             requestError(error, form);
         } finally {

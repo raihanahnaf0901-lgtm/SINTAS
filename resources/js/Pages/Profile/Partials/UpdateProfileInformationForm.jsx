@@ -2,6 +2,11 @@ import Icon from '@/Components/Icon';
 import { Field, Notice, useResendCooldown } from '@/Pages/Auth/Partials/AuthFields';
 import { useForm, usePage } from '@inertiajs/react';
 
+export function saveProfileInformation(form) {
+    form.transform((data) => ({ ...data, name: data.name.trim(), email: data.email.trim().toLowerCase() }));
+    form.patch(route('profile.update'), { preserveScroll: true });
+}
+
 export default function UpdateProfileInformation({ status, className = '' }) {
     const user = usePage().props.auth.user;
     const form = useForm({ name: user.name, email: user.email });
@@ -10,8 +15,7 @@ export default function UpdateProfileInformation({ status, className = '' }) {
 
     function submit(event) {
         event.preventDefault();
-        form.transform((data) => ({ ...data, email: data.email.trim().toLowerCase() }))
-            .patch(route('profile.update'), { preserveScroll: true });
+        saveProfileInformation(form);
     }
 
     return (

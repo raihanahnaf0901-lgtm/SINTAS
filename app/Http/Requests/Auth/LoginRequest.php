@@ -28,18 +28,15 @@ class LoginRequest extends FormRequest
 
     public function authenticate(): void
     {
-        $key = 'teacher-login:'.$this->input('email').'|'.$this->ip();
+        $key = 'account-login:'.$this->input('email').'|'.$this->ip();
         if (RateLimiter::tooManyAttempts($key, 5)) {
-            throw ValidationException::withMessages(['email' => 'Terlalu banyak percobaan login. Tunggu sebentar.']);
-        }
-        RateLimiter::hit($key, 60);
-        if ($this->input('role') !== 'guru') {
-            throw ValidationException::withMessages(['role' => 'Login siswa memerlukan kode verifikasi email.']);
+            throw ValidationException::withMessages(['email' => 'Terlalu banyak percobaan login. Tunggu '.RateLimiter::availableIn($key).' detik.']);
         }
         if (! Auth::attempt(['email' => $this->input('email'), 'password' => $this->input('password'),
-            'role' => 'guru', 'status' => 'aktif',
-            fn ($query) => $query->whereHas('guru')], $this->boolean('remember'))) {
-            throw ValidationException::withMessages(['email' => 'Email atau password guru tidak cocok, atau akun belum aktif.']);
+            'role' => $this->input('role'), 'status' => 'aktif',
+            fn ($query) => $query->whereHas($this->input('role') === 'guru' ? 'guru' : 'siswa')], $this->boolean('remember'))) {
+            RateLimiter::hit($key, 60);
+            throw ValidationException::withMessages(['email' => 'Email, password, atau jenis akun tidak cocok. Akun baru harus menyelesaikan verifikasi pendaftaran terlebih dahulu.']);
         }
         RateLimiter::clear($key);
     }
