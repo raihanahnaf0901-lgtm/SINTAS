@@ -40,7 +40,7 @@ export default function Edit({ siswa, status }) {
                                     <div><dt className="text-xs text-slate-500">Gelar</dt><dd className="mt-1 font-semibold">{teacher.gelar || 'Belum diisi'}</dd></div>
                                 </> : <>
                                     <div><dt className="text-xs text-slate-500">NIS</dt><dd className="mt-1 break-all font-semibold">{student.nis || 'Belum diisi'}</dd></div>
-                                    <div><dt className="text-xs text-slate-500">Kelas sekolah</dt><dd className="mt-1 font-semibold">{student.kelas?.nama_kelas || 'Belum dipilih'}</dd></div>
+                                    <div><dt className="text-xs text-slate-500">Kelas siswa</dt><dd className="mt-1 break-words font-semibold">{student.kelas_siswa || 'Belum diisi'}</dd></div>
                                 </>}
                             </dl>
                             {teacher && <p className="mt-4 text-xs leading-5 text-slate-500">Hubungi pengelola sekolah untuk memperbarui NIP, gelar, atau jenis guru.</p>}

@@ -99,6 +99,7 @@ function RecapResults({ base, config, canManage, isTeacher }) {
                         const part = student.komponen.find((item) => item.id === configPart.id);
                         return <td key={configPart.id} className="min-w-40 px-5 py-4">
                             <p className="font-bold text-slate-800">{score(part?.nilai)}</p>
+                            {part?.lengkap && part?.kontribusi !== null && part?.kontribusi !== undefined && <p className="mt-1 text-xs text-teal-700">Kontribusi: {score(part.kontribusi)} poin</p>}
                             {part && !part.lengkap && part.nilai !== null && <p className="mt-1 text-xs text-amber-700">Sebagian aktivitas belum dinilai</p>}
                             {part?.catatan && <p className="mt-1 max-w-xs whitespace-pre-wrap break-words text-xs text-slate-500">{part.catatan}</p>}
                             {canManage && part?.metode === 'manual' && <Button className="mt-2 !px-3 !py-2 !text-xs" variant="secondary" disabled={Boolean(manual)} onClick={() => { setSaved(''); setManual({ student, component: part }); }}>{part.nilai === null ? 'Isi nilai' : 'Edit nilai'}</Button>}
@@ -107,7 +108,7 @@ function RecapResults({ base, config, canManage, isTeacher }) {
                     <td className="min-w-40 px-5 py-4"><p className="text-lg font-bold text-teal-700">{student.nilai_akhir === null ? '—' : score(student.nilai_akhir)}</p><span className={`mt-1 inline-block text-xs ${student.lengkap ? 'text-teal-700' : 'text-amber-700'}`}>{student.lengkap ? 'Lengkap' : 'Belum lengkap'}</span></td>
                 </tr>)}</tbody>
             </table></div>
-            <p className="border-t border-slate-100 px-5 py-4 text-xs leading-6 text-slate-500">Nilai yang belum diisi tidak dianggap 0. Nilai akhir menunggu seluruh komponen berbobot lengkap.</p>
+            <p className="border-t border-slate-100 px-5 py-4 text-xs leading-6 text-slate-500">Nilai akhir = jumlah (nilai setiap komponen × bobot / 100). Nilai yang belum diisi tidak dianggap 0. Hasil akhir menunggu seluruh komponen berbobot lengkap dan dapat digunakan sebagai bahan pengisian rapor. Rekap ini mencakup aktivitas di kelas ini; nama konfigurasi tidak memfilter periode semester.</p>
         </div>}
         <Pager meta={result.data?.data} onPage={(nextPage) => { setManual(null); setPage(nextPage); }} />
     </div>;

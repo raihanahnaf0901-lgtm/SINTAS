@@ -6,6 +6,9 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,6 +26,21 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->render(function (ValidationException $exception, Request $request): void {
+            if (! $request->isMethod('post') || ! $request->is('api/v1/kelas-mapel/*/tugas/*/pengumpulan')) {
+                return;
+            }
+
+            $file = $request->file('file');
+            Log::notice('Pengumpulan tugas ditolak oleh validasi.', [
+                'path' => $request->path(),
+                'fields' => array_keys($exception->errors()),
+                'rules' => $exception->validator->failed(),
+                'upload_error' => $file instanceof UploadedFile ? $file->getError() : null,
+                'file_size' => $file instanceof UploadedFile && $file->isValid() ? $file->getSize() : null,
+            ]);
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

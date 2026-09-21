@@ -6,6 +6,21 @@ export async function api(method, path, payload) {
     return response.data;
 }
 
+function errorData(error) {
+    let data = error.response?.data;
+    if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch { return {}; }
+    }
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+}
+
+export function validationErrors(error) {
+    const errors = errorData(error).errors;
+    if (!errors || typeof errors !== 'object' || Array.isArray(errors)) return {};
+    return Object.fromEntries(Object.entries(errors).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])
+        .filter(([, value]) => typeof value === 'string' && value.length > 0));
+}
+
 export function errorMessage(error) {
     const status = error.response?.status;
     if (status === 401) return 'Sesi berakhir. Silakan masuk kembali.';
@@ -14,7 +29,13 @@ export function errorMessage(error) {
     if (status === 404) return 'Data tidak ditemukan atau sudah tidak tersedia.';
     if (status === 429) return 'Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.';
     if (status === 413) return 'Ukuran berkas terlalu besar. Pilih berkas yang lebih kecil.';
-    return status === 422 ? (error.response.data.message || 'Periksa kembali isian formulir.') : 'Data belum berhasil diproses. Periksa koneksi dan coba lagi.';
+    if (status === 422) {
+        const details = Object.values(validationErrors(error));
+        if (details.length) return [...new Set(details)].join(' ');
+        const message = errorData(error).message;
+        return typeof message === 'string' && message.trim() ? message : 'Server menolak pengiriman, tetapi rincian kesalahannya tidak terbaca. Muat ulang halaman; jika tetap gagal, periksa respons permintaan di Network.';
+    }
+    return 'Data belum berhasil diproses. Periksa koneksi dan coba lagi.';
 }
 
 export function useApiData(path) {
@@ -55,8 +76,7 @@ export function useApiForm(initial) {
             setMessage(result.message || 'Perubahan berhasil disimpan.');
             return result;
         } catch (error) {
-            const validation = error.response?.data?.errors ?? {};
-            setErrors({ ...Object.fromEntries(Object.entries(validation).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value])), _general: errorMessage(error) });
+            setErrors({ ...validationErrors(error), _general: errorMessage(error) });
             return null;
         } finally { busy.current = false; setProcessing(false); }
     }

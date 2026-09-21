@@ -21,40 +21,79 @@ class OtpAuthController extends Controller
 {
     public function register(Request $request, OtpService $otp): JsonResponse
     {
+        return $this->registerAccount($request, $otp, 'siswa');
+    }
+
+    public function registerGuru(Request $request, OtpService $otp): JsonResponse
+    {
+        return $this->registerAccount($request, $otp, 'guru');
+    }
+
+    private function registerAccount(Request $request, OtpService $otp, string $role): JsonResponse
+    {
         $this->normalizeEmail($request);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'username' => ['nullable', 'string', 'min:3', 'max:100', 'alpha_dash'],
             'email' => ['required', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Password::min(8)],
+            ...($role === 'guru' ? [
+                'nip' => ['required', 'string', 'max:30'],
+                'gelar' => ['nullable', 'string', 'max:50'],
+                'jenis_guru' => ['required', Rule::in(['guru_mapel', 'guru_piket'])],
+            ] : []),
         ]);
         try {
-            $user = DB::transaction(function () use ($data): User {
+            DB::transaction(function () use ($request, $data, $role, $otp): User {
                 $existing = User::query()->where('email', $data['email'])->lockForUpdate()->first();
                 if ($existing) {
-                    if ($existing->role !== 'siswa' || $existing->status !== 'pending' || ! Hash::check($data['password'], $existing->password)) {
+                    if ($existing->role !== $role || $existing->status !== 'pending' || ! Hash::check($data['password'], $existing->password)) {
                         throw ValidationException::withMessages(['email' => 'Email sudah terdaftar. Gunakan login atau reset password.']);
                     }
+
+                    if ($role === 'guru') {
+                        $request->validate(['nip' => [Rule::unique('guru')->ignore($existing->guru?->id)]],
+                            ['nip.unique' => 'NIP sudah digunakan oleh akun guru lain.']);
+                        $existing->update(['name' => $data['name']]);
+                        $existing->guru()->updateOrCreate(['user_id' => $existing->id], [
+                            'nama_lengkap' => $data['name'], 'nip' => $data['nip'],
+                            'gelar' => $data['gelar'] ?? null, 'jenis_guru' => $data['jenis_guru'],
+                        ]);
+                    }
+
+                    $otp->send($existing, 'register');
 
                     return $existing;
                 }
                 if (filled($data['username'] ?? null) && User::query()->where('username', $data['username'])->exists()) {
                     throw ValidationException::withMessages(['username' => 'Username sudah digunakan.']);
                 }
+                if ($role === 'guru') {
+                    $request->validate(['nip' => [Rule::unique('guru')]],
+                        ['nip.unique' => 'NIP sudah digunakan oleh akun guru lain.']);
+                }
                 $user = User::query()->create([
                     'name' => $data['name'], 'username' => $data['username'] ?? null,
-                    'email' => $data['email'], 'password' => $data['password'], 'role' => 'siswa', 'status' => 'pending',
+                    'email' => $data['email'], 'password' => $data['password'], 'role' => $role, 'status' => 'pending',
                 ]);
-                $user->siswa()->create(['nama_lengkap' => $data['name']]);
+                if ($role === 'guru') {
+                    $user->guru()->create(['nama_lengkap' => $data['name'], 'nip' => $data['nip'],
+                        'gelar' => $data['gelar'] ?? null, 'jenis_guru' => $data['jenis_guru']]);
+                } else {
+                    $user->siswa()->create(['nama_lengkap' => $data['name']]);
+                }
+
+                $otp->send($user, 'register');
 
                 return $user;
             });
         } catch (UniqueConstraintViolationException $exception) {
-            throw ValidationException::withMessages(['email' => 'Email atau username sudah digunakan. Ulangi dengan data lain.']);
+            throw ValidationException::withMessages(['email' => $role === 'guru'
+                ? 'Email, username, atau NIP sudah digunakan. Periksa kembali data pendaftaran.'
+                : 'Email atau username sudah digunakan. Ulangi dengan data lain.']);
         }
-        $otp->send($user, 'register');
 
-        return $this->sent();
+        return $this->sent(true);
     }
 
     public function loginCode(Request $request, OtpService $otp): JsonResponse
@@ -80,14 +119,19 @@ class OtpAuthController extends Controller
         return $this->verify($request, $otp, 'login');
     }
 
-    private function verify(Request $request, OtpService $otp, string $purpose): JsonResponse
+    public function verifyGuruRegister(Request $request, OtpService $otp): JsonResponse
+    {
+        return $this->verify($request, $otp, 'register', 'guru');
+    }
+
+    private function verify(Request $request, OtpService $otp, string $purpose, string $role = 'siswa'): JsonResponse
     {
         $this->normalizeEmail($request);
         $data = $request->validate([
             'email' => ['required', 'email'], 'code' => ['required', 'digits:6'], 'remember' => ['sometimes', 'boolean'],
         ]);
-        $user = User::query()->where('email', $data['email'])->where('role', 'siswa')->first();
-        if (! $user || ! $user->siswa || ! $otp->consume($user, $purpose, $data['code'], function (User $locked): void {
+        $user = User::query()->where('email', $data['email'])->where('role', $role)->first();
+        if (! $user || ! ($role === 'guru' ? $user->guru : $user->siswa) || ! $otp->consume($user, $purpose, $data['code'], function (User $locked): void {
             $locked->forceFill(['status' => 'aktif', 'email_verified_at' => $locked->email_verified_at ?? now()])->save();
         })) {
             $this->invalidCode();
@@ -96,7 +140,7 @@ class OtpAuthController extends Controller
         $request->session()->regenerate();
 
         return response()->json(['message' => 'Verifikasi berhasil.', 'redirect' => route('dashboard', absolute: false),
-            'needs_profile' => ! filled($user->siswa->nis)]);
+            'needs_profile' => $role === 'siswa' && ! filled($user->siswa->nis)]);
     }
 
     public function resetCode(Request $request, OtpService $otp): JsonResponse
@@ -108,7 +152,8 @@ class OtpAuthController extends Controller
             $otp->send($user, 'reset_password');
         }
 
-        return response()->json(['message' => 'Jika akun terdaftar dan aktif, kode reset password akan dikirim.'], 202);
+        return response()->json(['message' => 'Jika akun terdaftar dan aktif, kode reset password akan dikirim.',
+            'resend_after_seconds' => config('otp.resend_after_seconds')], 202);
     }
 
     public function resetPassword(Request $request, OtpService $otp): JsonResponse
@@ -140,7 +185,11 @@ class OtpAuthController extends Controller
             'nis' => ['required', 'string', 'max:20', Rule::unique('siswa')->ignore($siswa)],
             'nisn' => ['sometimes', 'nullable', 'digits:10', Rule::unique('siswa')->ignore($siswa)],
             'kelas_id' => ['sometimes', 'nullable', 'integer', Rule::exists('kelas', 'id')->where('status', 'aktif')],
+            'kelas_siswa' => ['sometimes', 'nullable', 'string', 'max:255'],
             'username' => ['sometimes', 'string', 'min:3', 'max:100', 'alpha_dash', Rule::unique('users')->ignore($request->user())],
+        ], [
+            'kelas_siswa.string' => 'Kelas siswa harus berupa teks.',
+            'kelas_siswa.max' => 'Kelas siswa maksimal 255 karakter.',
         ]);
         DB::transaction(function () use ($request, $siswa, $data): void {
             $siswa->update(collect($data)->except('username')->all());
@@ -156,9 +205,10 @@ class OtpAuthController extends Controller
         $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
     }
 
-    private function sent(): JsonResponse
+    private function sent(bool $registering = false): JsonResponse
     {
-        return response()->json(['message' => 'Kode verifikasi telah dikirim ke email Anda.',
+        return response()->json(['message' => ($registering ? 'Pendaftaran belum selesai. Akun baru aktif setelah kode OTP diverifikasi. ' : '').'Kode verifikasi telah diserahkan ke server email. Periksa kotak masuk atau folder spam dan gunakan kode terbaru.',
+            'resend_after_seconds' => config('otp.resend_after_seconds'),
             'expires_in_minutes' => max(1, (int) config('otp.expires_minutes'))], 202);
     }
 

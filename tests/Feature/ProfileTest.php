@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Guru;
+use App\Models\Siswa;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -77,6 +80,21 @@ class ProfileTest extends TestCase
 
         $this->assertGuest();
         $this->assertNull($user->fresh());
+    }
+
+    #[TestWith(['siswa'])]
+    #[TestWith(['guru'])]
+    public function test_account_name_changes_are_synced_to_academic_profile(string $role): void
+    {
+        $profile = ($role === 'guru' ? Guru::factory() : Siswa::factory())->create();
+        $account = $profile->user;
+
+        $this->actingAs($account)->patch('/profile', ['name' => 'Nama Baru', 'email' => $account->email])
+            ->assertSessionHasNoErrors()->assertRedirect('/profile');
+
+        $this->assertSame('Nama Baru', $account->fresh()->name);
+        $this->assertSame('Nama Baru', $profile->fresh()->nama_lengkap);
+        $this->assertNotNull($account->fresh()->email_verified_at);
     }
 
     public function test_correct_password_must_be_provided_to_delete_account(): void

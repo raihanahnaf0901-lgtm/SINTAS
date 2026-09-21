@@ -47,6 +47,7 @@ Route::prefix('v1')->middleware(['web', 'auth', EnsureActiveAccount::class])->gr
         Route::get('ujian', [UjianController::class, 'index']);
         Route::post('ujian', [UjianController::class, 'store']);
         Route::patch('ujian/{ujian}', [UjianController::class, 'update']);
+        Route::get('ujian/{ujian}/penilaian', [UjianController::class, 'grades']);
         Route::get('penilaian', [PenilaianController::class, 'index']);
         Route::put('penilaian', [PenilaianController::class, 'store']);
         Route::get('rekap', [RekapController::class, 'index']);

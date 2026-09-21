@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Guru;
 use App\Models\KelasMapel;
+use App\Models\Notifikasi;
 use App\Models\Siswa;
 use App\Models\Tugas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -88,6 +89,16 @@ class LearningPageTest extends TestCase
         $this->get('/aktivitas/tugas')->assertRedirectToRoute('login');
         $this->get('/notifikasi')->assertRedirectToRoute('login');
         $this->get('/data-sekolah')->assertRedirectToRoute('login');
+    }
+
+    public function test_notifications_page_opens_with_current_users_unread_count(): void
+    {
+        $user = Siswa::factory()->create()->user;
+        Notifikasi::create(['user_id' => $user->id, 'judul' => 'Tugas baru', 'pesan' => 'Latihan', 'tipe' => 'tugas']);
+        Notifikasi::create(['user_id' => Siswa::factory()->create()->user_id, 'judul' => 'Pribadi', 'pesan' => 'Kelas lain', 'tipe' => 'tugas']);
+
+        $this->actingAs($user)->get('/notifikasi')->assertInertia(fn (Assert $page) => $page
+            ->component('Notifications')->where('unreadNotifications', 1));
     }
 
     public function test_owner_receives_management_permissions_and_can_open_settings(): void

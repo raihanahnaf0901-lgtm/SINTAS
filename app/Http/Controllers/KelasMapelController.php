@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreKelasMapelRequest;
 use App\Http\Requests\UpdateKelasMapelRequest;
 use App\Models\KelasMapel;
+use App\Models\Mapel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,10 +32,18 @@ class KelasMapelController extends Controller
 
     public function store(StoreKelasMapelRequest $request): JsonResponse
     {
-        $kelas = DB::transaction(fn () => KelasMapel::query()->create([
-            ...$request->validated(),
-            'guru_pembuat_id' => $request->user()->guru->id,
-        ]));
+        $kelas = DB::transaction(function () use ($request): KelasMapel {
+            $data = $request->validated();
+            $mapelId = $data['mapel_id'] ?? Mapel::query()->firstOrCreate([
+                'nama_mapel' => $data['nama_kelas_mapel'],
+            ])->id;
+
+            return KelasMapel::query()->create([
+                ...$data,
+                'mapel_id' => $mapelId,
+                'guru_pembuat_id' => $request->user()->guru->id,
+            ]);
+        });
 
         return response()->json(['data' => $this->ownerData($kelas->load('mapel'))], 201);
     }

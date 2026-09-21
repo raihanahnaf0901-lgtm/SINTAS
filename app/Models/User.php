@@ -18,7 +18,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $hidden = ['password', 'remember_token'];
 
-    protected $attributes = ['role' => 'siswa', 'status' => 'aktif'];
+    protected $attributes = ['role' => 'siswa', 'status' => 'pending'];
 
     protected static function booted(): void
     {

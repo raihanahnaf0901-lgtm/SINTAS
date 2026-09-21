@@ -35,19 +35,16 @@ export function JoinClassForm({ invitation, onJoined }) {
 }
 
 function CreateClassForm() {
-    const master = useApiData('/api/v1/master-data');
-    const form = useApiForm({ mapel_id: '', nama_kelas_mapel: '', kode_kelas: '', deskripsi: '' });
+    const form = useApiForm({ nama_kelas_mapel: '', deskripsi: '' });
     async function submit(event) {
         event.preventDefault();
-        const result = await form.submit('post', '/api/v1/kelas-mapel', { ...form.data, kode_kelas: form.data.kode_kelas.trim() || null });
+        const result = await form.submit('post', '/api/v1/kelas-mapel');
         if (result) router.visit(route('subjects.section', { subject: result.data.id, section: 'pengaturan' }));
     }
     return <form onSubmit={submit} className="surface flex flex-col gap-5 p-6"><div><h2 className="text-lg font-bold">Buat kelas mata pelajaran</h2><p className="mt-1 text-sm text-slate-500">Siapkan ruang belajar dan undang siswa ke kelas Anda.</p></div>
         <Field label="Nama kelas mata pelajaran" error={form.errors.nama_kelas_mapel}><input className="input" required maxLength={255} value={form.data.nama_kelas_mapel} onChange={(e) => form.setData('nama_kelas_mapel', e.target.value)} placeholder="Matematika · X IPA 1" /></Field>
-        {master.loading ? <LoadingState /> : master.error ? <><Notice message={master.error} /><Button variant="secondary" onClick={master.reload}>Coba lagi</Button></> : <Field label="Mata pelajaran" error={form.errors.mapel_id}><select className="input" required value={form.data.mapel_id} onChange={(e) => form.setData('mapel_id', e.target.value)}><option value="">Pilih mata pelajaran</option>{master.data?.mapel?.map((item) => <option key={item.id} value={item.id}>{item.nama_mapel}</option>)}</select></Field>}
-        <Link className="text-xs font-semibold text-teal-700 underline" href={route('master-data.index')}>Mata pelajaran belum tersedia? Tambahkan di data sekolah.</Link>
-        <Field label="Kode khas (opsional)" error={form.errors.kode_kelas}><input className="input uppercase" minLength={6} maxLength={32} pattern="[A-Za-z0-9-]+" value={form.data.kode_kelas} onChange={(e) => form.setData('kode_kelas', e.target.value)} placeholder="6–32 huruf, angka, atau tanda -" /></Field><p className="text-xs text-slate-500">Kosongkan untuk membuat kode otomatis. Kode bisa diubah setelah kelas dibuat.</p>
-        <Field label="Deskripsi (opsional)" error={form.errors.deskripsi}><textarea className="input" rows={3} maxLength={10000} value={form.data.deskripsi} onChange={(e) => form.setData('deskripsi', e.target.value)} /></Field><Notice message={form.errors._general} /><Button type="submit" disabled={form.processing || master.loading || Boolean(master.error)}>{form.processing ? 'Membuat...' : 'Buat kelas'}</Button></form>;
+        <p className="text-xs text-slate-500">Kode kelas dibuat otomatis oleh sistem dan tersedia setelah kelas berhasil dibuat.</p>
+        <Field label="Deskripsi (opsional)" error={form.errors.deskripsi}><textarea className="input" rows={3} maxLength={10000} value={form.data.deskripsi} onChange={(e) => form.setData('deskripsi', e.target.value)} /></Field><Notice message={form.errors._general} /><Button type="submit" disabled={form.processing}>{form.processing ? 'Membuat...' : 'Buat kelas'}</Button></form>;
 }
 
 export default function Subjects() {
