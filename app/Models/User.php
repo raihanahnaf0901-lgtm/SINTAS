@@ -9,10 +9,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     protected $fillable = ['name', 'username', 'email', 'password', 'role', 'status', 'email_verified_at'];
 
@@ -35,6 +36,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function siswa(): HasOne
     {
         return $this->hasOne(Siswa::class);
+    }
+
+    public function isSchoolAdmin(?Sekolah $sekolah = null): bool
+    {
+        if ($this->role !== 'guru' || $this->status !== 'aktif' || ! $this->guru || ! $this->hasRole('admin_sekolah')) {
+            return false;
+        }
+
+        return $this->guru->keanggotaanSekolah()->where('status', 'diterima')
+            ->when($sekolah !== null, fn ($query) => $query->where('sekolah_id', $sekolah->id))
+            ->whereHas('sekolah', fn ($query) => $query->where('status', 'aktif')
+                ->where('admin_guru_id', $this->guru->id))->exists();
     }
 
     public function guru(): HasOne

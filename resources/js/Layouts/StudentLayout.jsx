@@ -6,7 +6,8 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function StudentLayout({ active = 'home', title, children }) {
-    const user = usePage().props.auth?.user;
+    const auth = usePage().props.auth;
+    const user = auth?.user;
     const { unreadNotifications = 0, pendingInvite } = usePage().props;
     const [menuOpen, setMenuOpen] = useState(false);
     const homeHref = route(user ? 'dashboard' : 'home');
@@ -19,7 +20,8 @@ export default function StudentLayout({ active = 'home', title, children }) {
             { id: 'ujian', label: 'Ujian', icon: 'book', href: route('learning.overview', { section: 'ujian' }) },
             { id: 'nilai', label: user.role === 'guru' ? 'Penilaian & rekap' : 'Nilai saya', icon: 'chart', href: route('learning.overview', { section: 'nilai' }) },
             { id: 'notifications', label: 'Notifikasi', icon: 'bell', href: route('notifications.index') },
-            ...(user.guru?.jenis_guru === 'guru_mapel' ? [{ id: 'master', label: 'Data sekolah', icon: 'landmark', href: route('master-data.index') }] : []),
+            ...(user.role === 'guru' ? [{ id: 'master', label: 'Data sekolah', icon: 'landmark', href: route('master-data.index') }] : []),
+            ...(auth?.isSchoolAdmin ? [{ id: 'school-admin', label: 'Admin sekolah', icon: 'lock', href: route('school-admin.index') }] : []),
         ] : []),
         { id: 'profile', label: user ? 'Profil saya' : 'Masuk', icon: 'user', href: route(user ? 'profile.edit' : 'login') },
     ];
@@ -56,7 +58,7 @@ export default function StudentLayout({ active = 'home', title, children }) {
                         <div className="flex items-center gap-3 lg:hidden"><button type="button" className="rounded-xl p-2 text-slate-600" aria-label="Buka semua menu" onClick={() => setMenuOpen(true)}><Icon name="menu" /></button><Link href={homeHref}><Brand /></Link></div>
                         <div className="hidden items-center gap-3 text-sm lg:flex"><span className="text-slate-400">Ruang belajar</span><Icon name="chevron" className="h-3 w-3 text-slate-400" /><span className="font-semibold text-slate-700">{title}</span></div>
                         <div className="flex items-center gap-3">{user && <Link className="relative rounded-xl p-2 text-slate-500" href={route('notifications.index')} aria-label={`Notifikasi, ${unreadNotifications} belum dibaca`}><Icon name="bell" />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-teal-700 px-1.5 py-0.5 text-[10px] text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</Link>}<Link href={route(user ? 'profile.edit' : 'login')} className="flex min-w-0 items-center gap-3 rounded-xl p-1">
-                            <span className="hidden max-w-48 text-right sm:block"><span className="block truncate text-sm font-bold text-slate-800">{user?.name ?? 'Selamat datang'}</span><span className="text-[11px] text-slate-500">{user ? 'Akun ' + (user.role === 'guru' ? 'guru' : user.role === 'admin' ? 'admin' : 'siswa') : 'Masuk ke akunmu'}</span></span>
+                            <span className="hidden max-w-48 text-right sm:block"><span className="block truncate text-sm font-bold text-slate-800">{user?.name ?? 'Selamat datang'}</span><span className="text-[11px] text-slate-500">{auth?.isSchoolAdmin ? 'Admin sekolah' : user ? 'Akun ' + (user.role === 'guru' ? 'guru' : user.role === 'admin' ? 'admin' : 'siswa') : 'Masuk ke akunmu'}</span></span>
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-4 border-white bg-teal-100 text-xs font-extrabold text-teal-800 ring-1 ring-slate-200">{initials}</span>
                         </Link></div>
                     </div>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AnggotaKelas;
+use App\Models\Guru;
 use App\Models\KelasMapel;
 use App\Models\Notifikasi;
 use Illuminate\Http\JsonResponse;
@@ -70,6 +71,8 @@ class AnggotaKelasController extends Controller
         Gate::authorize('reviewMembers', $kelasMapel);
         $data = $request->validate(['status' => ['required', Rule::in(['diterima', 'ditolak'])]]);
         DB::transaction(function () use ($request, $kelasMapel, $anggota, $data): void {
+            $guru = Guru::query()->lockForUpdate()->findOrFail($request->user()->guru->id);
+            $request->user()->setRelation('guru', $guru);
             $kelas = KelasMapel::query()->lockForUpdate()->findOrFail($kelasMapel->id);
             Gate::authorize('reviewMembers', $kelas);
             $member = $kelas->anggota()->lockForUpdate()->findOrFail($anggota->id);

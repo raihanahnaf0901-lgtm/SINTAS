@@ -20,7 +20,7 @@ class RekapController extends Controller
     public function index(Request $request, KelasMapel $kelasMapel): JsonResponse
     {
         Gate::authorize('view', $kelasMapel);
-        $this->canRead($request);
+        Gate::authorize('viewRekap', $kelasMapel);
         $query = $kelasMapel->konfigurasiRekap()->with('komponen');
         if ($request->user()->role === 'siswa') {
             $query->where('status', 'aktif');
@@ -102,7 +102,7 @@ class RekapController extends Controller
     {
         abort_unless($rekap->kelas_mapel_id === $kelasMapel->id, 404);
         Gate::authorize('view', $kelasMapel);
-        $this->canRead($request);
+        Gate::authorize('viewRekap', $kelasMapel);
         if ($request->user()->role === 'siswa') {
             abort_unless($rekap->status === 'aktif', 403);
         }
@@ -115,11 +115,6 @@ class RekapController extends Controller
         $students->setCollection($calculator->calculate($rekap, $students->getCollection()));
 
         return response()->json(['data' => $students]);
-    }
-
-    private function canRead(Request $request): void
-    {
-        abort_if($request->user()->role === 'guru' && $request->user()->guru->jenis_guru !== 'guru_mapel', 403);
     }
 
     private function validateConfig(Request $request): array

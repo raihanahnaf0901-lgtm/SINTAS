@@ -9,14 +9,21 @@ import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 
+export function profileRoleLabel(auth) {
+    if (auth.user?.role !== 'guru') return 'Siswa';
+    if (auth.isSchoolAdmin) return 'Admin sekolah';
+    return (auth.schoolTeacherType ?? auth.user.guru?.jenis_guru) === 'guru_piket' ? 'Guru piket' : 'Guru mata pelajaran';
+}
+
 export default function Edit({ siswa, status }) {
-    const user = usePage().props.auth.user;
+    const auth = usePage().props.auth;
+    const user = auth.user;
     const student = siswa ?? user.siswa;
     const teacher = user.guru;
     const logout = useForm({});
     const [showLogout, setShowLogout] = useState(false);
     const initials = user.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
-    const roleLabel = user.role === 'guru' ? teacher?.jenis_guru === 'guru_piket' ? 'Guru piket' : 'Guru mata pelajaran' : 'Siswa';
+    const roleLabel = profileRoleLabel(auth);
 
     return (
         <>

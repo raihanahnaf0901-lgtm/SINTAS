@@ -17,7 +17,7 @@ class KelasMapelAccessTest extends TestCase
 
     public function test_teacher_creates_class_without_preexisting_schedule_and_can_edit_code(): void
     {
-        $guru = Guru::factory()->create();
+        $guru = Guru::factory()->inSchool()->create();
         $mapel = Mapel::factory()->create();
         $id = $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', [
             'mapel_id' => $mapel->id, 'nama_kelas_mapel' => 'Matematika X', 'kode_kelas' => 'mtk-123456',
@@ -36,7 +36,7 @@ class KelasMapelAccessTest extends TestCase
 
     public function test_teacher_creates_class_with_only_name_and_description_and_student_can_request_to_join(): void
     {
-        $guru = Guru::factory()->create();
+        $guru = Guru::factory()->inSchool()->create();
         $student = Siswa::factory()->create();
         $response = $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', [
             'nama_kelas_mapel' => 'PIPAS X PPLG', 'deskripsi' => 'Ruang belajar PIPAS.',
@@ -62,7 +62,7 @@ class KelasMapelAccessTest extends TestCase
 
     public function test_same_class_name_reuses_subject_but_gets_a_different_generated_code(): void
     {
-        $guru = Guru::factory()->create();
+        $guru = Guru::factory()->inSchool()->create();
         $mapel = Mapel::factory()->create(['nama_mapel' => 'PIPAS X PPLG']);
         $this->actingAs($guru->user);
         $first = $this->postJson('/api/v1/kelas-mapel', ['nama_kelas_mapel' => 'PIPAS X PPLG'])
@@ -77,7 +77,7 @@ class KelasMapelAccessTest extends TestCase
 
     public function test_invalid_class_name_creates_neither_class_nor_subject(): void
     {
-        $guru = Guru::factory()->create();
+        $guru = Guru::factory()->inSchool()->create();
         $this->actingAs($guru->user)->postJson('/api/v1/kelas-mapel', ['nama_kelas_mapel' => '   '])
             ->assertUnprocessable()->assertJsonValidationErrors('nama_kelas_mapel');
         $this->assertDatabaseCount('mapel', 0);

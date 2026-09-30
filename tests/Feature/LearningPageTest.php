@@ -111,7 +111,7 @@ class LearningPageTest extends TestCase
                     'manageAcademic' => true, 'reviewMembers' => true, 'update' => true,
                     'submit' => false, 'viewRekap' => true, 'isTeacher' => true,
                 ]));
-        $this->get('/data-sekolah')->assertInertia(fn (Assert $page) => $page->component('MasterData'));
+        $this->get('/data-sekolah')->assertInertia(fn (Assert $page) => $page->component('School'));
     }
 
     public function test_whitelisted_mapel_teacher_can_teach_but_cannot_open_owner_settings(): void
@@ -129,7 +129,7 @@ class LearningPageTest extends TestCase
         $this->get('/mata-pelajaran/'.$kelas->id.'/pengaturan')->assertForbidden();
     }
 
-    public function test_piket_can_monitor_members_but_cannot_open_rekap_or_school_data(): void
+    public function test_piket_can_monitor_members_and_open_school_onboarding_but_not_rekap(): void
     {
         $kelas = KelasMapel::factory()->create();
         $guru = Guru::factory()->create(['jenis_guru' => 'guru_piket']);
@@ -143,7 +143,7 @@ class LearningPageTest extends TestCase
                 ]));
         $this->get('/mata-pelajaran/'.$kelas->id.'/rekap')->assertForbidden();
         $this->get('/mata-pelajaran/'.$kelas->id.'/pengaturan')->assertForbidden();
-        $this->get('/data-sekolah')->assertForbidden();
+        $this->get('/data-sekolah')->assertInertia(fn (Assert $page) => $page->component('School'));
     }
 
     public function test_student_can_open_own_class_rekap_but_not_members_or_settings(): void

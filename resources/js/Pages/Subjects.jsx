@@ -1,6 +1,7 @@
 import { Button, EmptyState, Field, LoadingState, Notice, Pager, StatusBadge, useApiData, useApiForm } from '@/Components/AcademicUI';
 import Icon from '@/Components/Icon';
 import StudentLayout from '@/Layouts/StudentLayout';
+import { SchoolEnrollmentNotice } from '@/Pages/School';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -34,32 +35,38 @@ export function JoinClassForm({ invitation, onJoined }) {
     </form>;
 }
 
-function CreateClassForm() {
+export function classCreationPayload(data, schoolId) {
+    return { nama_kelas_mapel: data.nama_kelas_mapel, deskripsi: data.deskripsi, sekolah_id: schoolId };
+}
+
+export function CreateClassForm({ school }) {
     const form = useApiForm({ nama_kelas_mapel: '', deskripsi: '' });
     async function submit(event) {
         event.preventDefault();
-        const result = await form.submit('post', '/api/v1/kelas-mapel');
+        const result = await form.submit('post', '/api/v1/kelas-mapel', classCreationPayload(form.data, school?.id));
         if (result) router.visit(route('subjects.section', { subject: result.data.id, section: 'pengaturan' }));
     }
-    return <form onSubmit={submit} className="surface flex flex-col gap-5 p-6"><div><h2 className="text-lg font-bold">Buat kelas mata pelajaran</h2><p className="mt-1 text-sm text-slate-500">Siapkan ruang belajar dan undang siswa ke kelas Anda.</p></div>
+    return <form onSubmit={submit} className="surface flex flex-col gap-5 p-6"><div><h2 className="text-lg font-bold">Buat kelas mata pelajaran</h2><p className="mt-1 text-sm text-slate-500">Siapkan ruang belajar dan undang siswa ke kelas Anda.</p><p className="mt-2 text-sm font-semibold text-teal-700">Sekolah tujuan: {school?.nama_sekolah ?? 'Pilih sekolah di Data sekolah terlebih dahulu'}</p></div>
         <Field label="Nama kelas mata pelajaran" error={form.errors.nama_kelas_mapel}><input className="input" required maxLength={255} value={form.data.nama_kelas_mapel} onChange={(e) => form.setData('nama_kelas_mapel', e.target.value)} placeholder="Matematika · X IPA 1" /></Field>
         <p className="text-xs text-slate-500">Kode kelas dibuat otomatis oleh sistem dan tersedia setelah kelas berhasil dibuat.</p>
         <Field label="Deskripsi (opsional)" error={form.errors.deskripsi}><textarea className="input" rows={3} maxLength={10000} value={form.data.deskripsi} onChange={(e) => form.setData('deskripsi', e.target.value)} /></Field><Notice message={form.errors._general} /><Button type="submit" disabled={form.processing}>{form.processing ? 'Membuat...' : 'Buat kelas'}</Button></form>;
 }
 
 export default function Subjects() {
-    const user = usePage().props.auth.user;
+    const auth = usePage().props.auth;
+    const user = auth.user;
     const [page, setPage] = useState(1);
     const [formOpen, setFormOpen] = useState(false);
     const [query, setQuery] = useState('');
     const rooms = useApiData(`/api/v1/kelas-mapel?page=${page}`);
-    const canCreate = user.role === 'guru' && user.guru?.jenis_guru === 'guru_mapel';
+    const canCreate = user.role === 'guru' && auth.canCreateClass === true;
     const isStudent = user.role === 'siswa';
     const list = rooms.data?.data?.data ?? [];
     const filtered = list.filter((item) => `${item.nama_kelas_mapel} ${item.mapel?.nama_mapel}`.toLowerCase().includes(query.toLowerCase()));
     return <StudentLayout active="subjects" title="Mata pelajaran"><Head title="Mata Pelajaran" />
+        <SchoolEnrollmentNotice auth={auth} />
         <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow mb-2">Ruang belajar bersama</p><h1 className="text-3xl font-extrabold tracking-tight">Mata pelajaran</h1><p className="mt-2 text-sm text-slate-500">{isStudent ? 'Kelas yang sudah menerima kamu tampil di sini.' : 'Kelola kelas dan dampingi kegiatan belajar siswa.'}</p></div>{(canCreate || isStudent) && <Button onClick={() => setFormOpen(!formOpen)}>{formOpen ? 'Tutup formulir' : isStudent ? 'Gabung kelas' : '+ Buat kelas'}</Button>}</div>
-        {formOpen && <div className="mb-7">{isStudent ? <JoinClassForm onJoined={() => { rooms.reload(); }} /> : <CreateClassForm />}</div>}
+        {formOpen && (isStudent || canCreate) && <div className="mb-7">{isStudent ? <JoinClassForm onJoined={() => { rooms.reload(); }} /> : <CreateClassForm key={auth.school?.id} school={auth.school} />}</div>}
         {rooms.loading ? <LoadingState /> : rooms.error ? <div className="flex flex-col gap-3"><Notice message={rooms.error} /><Button variant="secondary" onClick={rooms.reload}>Coba lagi</Button></div> : <>
             {Boolean(rooms.data?.permintaan?.length) && <section className="surface mb-7 p-6"><h2 className="mb-4 font-bold">Status pengajuanmu</h2><div className="flex flex-col gap-3">{rooms.data.permintaan.map((entry) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4" key={entry.id}><div><p className="text-sm font-semibold">{entry.kelas_mapel?.nama_kelas_mapel}</p><p className="mt-1 text-xs text-slate-500">{entry.status === 'pending' ? 'Menunggu keputusan guru pemilik kelas.' : 'Kamu bisa mengajukan kembali dengan kode kelas.'}</p></div><StatusBadge status={entry.status} /></div>)}</div><Button className="mt-4" variant="secondary" onClick={rooms.reload}>Perbarui status</Button></section>}
             {list.length > 0 && <label className="mb-5 block"><span className="sr-only">Cari kelas pada halaman ini</span><input className="input" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari kelas pada halaman ini..." /></label>}

@@ -142,7 +142,8 @@ class RegistrationTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
         $this->get('/dashboard')->assertInertia(fn (Assert $page) => $page->component('TeacherDashboard'));
         $this->getJson('/api/v1/kelas-mapel/'.$otherClass->id)->assertForbidden();
-        $this->assertSame($type === 'guru_mapel', $user->fresh()->can('create', KelasMapel::class));
+        $this->assertFalse($user->fresh()->can('create', KelasMapel::class));
+        $this->assertCount(0, $user->fresh()->guru->keanggotaanSekolah);
         $this->post(route('logout'))->assertRedirect('/');
         $this->post(route('login'), ['role' => 'guru', 'email' => $user->email, 'password' => 'private-password'])
             ->assertRedirectToRoute('dashboard');

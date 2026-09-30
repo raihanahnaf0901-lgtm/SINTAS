@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\AdminSekolahController;
 use App\Http\Controllers\KelasMapelController;
 use App\Http\Controllers\LearningPageController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SekolahController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Middleware\EnsureActiveAccount;
 use Illuminate\Http\Request;
@@ -23,7 +25,9 @@ Route::middleware(['auth', EnsureActiveAccount::class])->group(function (): void
     Route::get('/aktivitas/{section}', [LearningPageController::class, 'overview'])
         ->whereIn('section', ['jadwal', 'tugas', 'ujian', 'nilai'])->name('learning.overview');
     Route::get('/notifikasi', [LearningPageController::class, 'notifications'])->name('notifications.index');
-    Route::get('/data-sekolah', [LearningPageController::class, 'masterData'])->name('master-data.index');
+    Route::get('/data-sekolah', [SekolahController::class, 'page'])->name('master-data.index');
+    Route::get('/data-sekolah/referensi', [LearningPageController::class, 'masterData'])->name('school-reference.index');
+    Route::get('/admin-sekolah', [AdminSekolahController::class, 'page'])->name('school-admin.index');
 });
 
 Route::middleware('auth')->group(function (): void {

@@ -6,7 +6,12 @@ import { useState } from 'react';
 export default function LearningOverview({ section, items }) {
     const [page, setPage] = useState(1);
     const rooms = useApiData(`/api/v1/kelas-mapel?page=${page}`);
-    const title = { jadwal: 'Jadwal pelajaran', tugas: 'Tugas', ujian: 'Ujian', nilai: 'Penilaian & rekap' }[section];
+    const title = { 
+        jadwal: 'Jadwal pelajaran', 
+        tugas: 'Tugas', 
+        ujian: 'Ujian', 
+        nilai: 'Penilaian & rekap' }
+    [section];
     const description = { jadwal: 'Jadwal belajar dari semua kelas yang kamu ikuti.', tugas: 'Buka tugas di kelas untuk melihat petunjuk dan pengumpulan.', ujian: 'Pilih kelas untuk melihat jadwal ujian harian dan semester.', nilai: 'Pilih kelas untuk melihat penilaian dan rekap hasil belajar.' }[section];
     return <StudentLayout active={section} title={title}><Head title={title} /><div className="mb-7"><p className="eyebrow mb-2">Kegiatan akademik</p><h1 className="text-3xl font-extrabold">{title}</h1><p className="mt-2 text-sm leading-6 text-slate-500">{description}</p></div>
         {items && <section className="mb-8">{items.data.length ? <div className="grid gap-4 md:grid-cols-2">{items.data.map((item) => <Link key={item.id} href={route('subjects.section', { subject: item.kelas_mapel_id, section })} className="surface flex flex-col gap-3 p-5 transition hover:border-teal-300"><p className="text-xs font-bold text-teal-700">{item.kelas_mapel?.nama_kelas_mapel}</p><h2 className="font-bold">{section === 'jadwal' ? item.hari.charAt(0).toUpperCase() + item.hari.slice(1) : item.judul}</h2><p className="text-sm text-slate-500">{section === 'jadwal' ? `${item.jam_mulai.slice(0, 5)}–${item.jam_selesai.slice(0, 5)} · ${item.ruangan || 'Ruangan belum ditentukan'}` : `Tenggat: ${formatDate(item.deadline, true)}`}</p><span className="text-xs font-bold text-teal-700">Buka di kelas →</span></Link>)}</div> : <EmptyState title={section === 'jadwal' ? 'Belum ada jadwal' : 'Belum ada tugas'} description="Kegiatan akan tampil setelah ditambahkan guru di kelas yang menerima kamu." />}<Pager meta={items} onPage={(next) => router.get(route('learning.overview', { section }), { page: next }, { preserveScroll: true })} /></section>}

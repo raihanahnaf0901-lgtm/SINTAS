@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreKelasMapelRequest;
 use App\Http\Requests\UpdateKelasMapelRequest;
+use App\Models\Guru;
 use App\Models\KelasMapel;
 use App\Models\Mapel;
+use App\Services\SchoolContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,6 +36,16 @@ class KelasMapelController extends Controller
     public function store(StoreKelasMapelRequest $request): JsonResponse
     {
         $kelas = DB::transaction(function () use ($request): KelasMapel {
+            $guru = Guru::query()->lockForUpdate()->findOrFail($request->user()->guru->id);
+            $request->user()->setRelation('guru', $guru);
+            $school = app(SchoolContext::class)->school($request);
+            if ($school === null) {
+                throw ValidationException::withMessages(['sekolah' => 'Bergabung dan tunggu persetujuan sekolah sebelum membuat kelas.']);
+            }
+            if (! $school->hasActiveSubscription()) {
+                throw ValidationException::withMessages(['sekolah' => 'Langganan sekolah harus aktif sebelum membuat kelas baru.']);
+            }
+            Gate::authorize('create', [KelasMapel::class, $school]);
             $data = $request->validated();
             $mapelId = $data['mapel_id'] ?? Mapel::query()->firstOrCreate([
                 'nama_mapel' => $data['nama_kelas_mapel'],
@@ -40,8 +53,9 @@ class KelasMapelController extends Controller
 
             return KelasMapel::query()->create([
                 ...$data,
+                'sekolah_id' => $school->id,
                 'mapel_id' => $mapelId,
-                'guru_pembuat_id' => $request->user()->guru->id,
+                'guru_pembuat_id' => $guru->id,
             ]);
         });
 
@@ -60,6 +74,8 @@ class KelasMapelController extends Controller
     public function update(UpdateKelasMapelRequest $request, KelasMapel $kelasMapel): JsonResponse
     {
         DB::transaction(function () use ($request, $kelasMapel): void {
+            $guru = Guru::query()->lockForUpdate()->findOrFail($request->user()->guru->id);
+            $request->user()->setRelation('guru', $guru);
             $kelas = KelasMapel::query()->lockForUpdate()->findOrFail($kelasMapel->id);
             Gate::authorize('update', $kelas);
             $data = $request->safe()->except('regenerate_invite');

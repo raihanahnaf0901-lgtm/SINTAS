@@ -22,6 +22,25 @@ class Guru extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function keanggotaanSekolah(): HasMany
+    {
+        return $this->hasMany(KeanggotaanSekolah::class);
+    }
+
+    public function sekolahAktif(?int $schoolId = null): ?Sekolah
+    {
+        return $this->keanggotaanSekolah()->where('status', 'diterima')
+            ->when($schoolId !== null, fn ($query) => $query->where('sekolah_id', $schoolId))
+            ->whereHas('sekolah', fn ($query) => $query->where('status', 'aktif'))
+            ->with('sekolah')->orderBy('id')->first()?->sekolah;
+    }
+
+    public function jenisDiSekolah(?int $schoolId): string
+    {
+        return ($schoolId === null ? null : $this->keanggotaanSekolah()
+            ->where('sekolah_id', $schoolId)->where('status', 'diterima')->value('jenis_guru')) ?? $this->jenis_guru;
+    }
+
     public function jadwals(): HasMany
     {
         return $this->hasMany(Jadwal::class);

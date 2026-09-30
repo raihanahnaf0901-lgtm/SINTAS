@@ -15,7 +15,7 @@ class KelasMapel extends Model
 
     protected $table = 'kelas_mapel';
 
-    protected $fillable = ['mapel_id', 'guru_pembuat_id', 'nama_kelas_mapel', 'kode_kelas', 'invite_token', 'deskripsi', 'status'];
+    protected $fillable = ['sekolah_id', 'mapel_id', 'guru_pembuat_id', 'nama_kelas_mapel', 'kode_kelas', 'invite_token', 'deskripsi', 'status'];
 
     protected $hidden = ['kode_kelas', 'invite_token'];
 
@@ -42,8 +42,24 @@ class KelasMapel extends Model
             return $query->whereRaw('1 = 0');
         }
         if ($user->role === 'guru' && $user->guru) {
-            return $query->whereHas('whitelist', fn (Builder $q) => $q
+            $schoolIds = $user->guru->keanggotaanSekolah()->where('status', 'diterima')
+                ->whereHas('sekolah', fn (Builder $school) => $school->where('status', 'aktif'))
+                ->select('sekolah_id');
+            $adminSchoolIds = Sekolah::query()->where('admin_guru_id', $user->guru->id)->select('id');
+            $whitelisted = fn (Builder $q) => $q->whereHas('whitelist', fn (Builder $entry) => $entry
                 ->where('guru_id', $user->guru->id)->where('status', 'aktif'));
+
+            return $query->where(function (Builder $rooms) use ($schoolIds, $adminSchoolIds, $user, $whitelisted): void {
+                $rooms->where(fn (Builder $legacy) => $whitelisted($legacy->whereNull('sekolah_id')));
+                $rooms->orWhere(function (Builder $schoolRooms) use ($schoolIds, $adminSchoolIds, $user, $whitelisted): void {
+                    $schoolRooms->whereIn('sekolah_id', $schoolIds)->where(function (Builder $allowed) use ($adminSchoolIds, $user, $whitelisted): void {
+                        $whitelisted($allowed);
+                        if ($user->hasRole('admin_sekolah')) {
+                            $allowed->orWhereIn('sekolah_id', $adminSchoolIds);
+                        }
+                    });
+                });
+            });
         }
         if ($user->role === 'siswa' && $user->siswa) {
             return $query->where('status', 'aktif')->whereHas('anggota', fn (Builder $q) => $q
@@ -51,6 +67,11 @@ class KelasMapel extends Model
         }
 
         return $query->whereRaw('1 = 0');
+    }
+
+    public function sekolah(): BelongsTo
+    {
+        return $this->belongsTo(Sekolah::class);
     }
 
     public function mapel(): BelongsTo

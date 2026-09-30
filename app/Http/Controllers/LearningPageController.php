@@ -8,6 +8,7 @@ use App\Models\KelasMapel;
 use App\Models\PengumpulanTugas;
 use App\Models\Tugas;
 use App\Services\LearningData;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -23,18 +24,23 @@ class LearningPageController extends Controller
         }
         $rooms = KelasMapel::query()->accessibleTo($user)->where('status', 'aktif');
         $roomIds = (clone $rooms)->select('id');
-        $ownedIds = (clone $rooms)->where('guru_pembuat_id', $user->guru->id)->select('id');
+        $reviewableIds = (clone $rooms)->where(function (Builder $query) use ($user): void {
+            $query->where('guru_pembuat_id', $user->guru->id);
+            if ($user->hasRole('admin_sekolah')) {
+                $query->orWhereHas('sekolah', fn (Builder $school) => $school->where('admin_guru_id', $user->guru->id));
+            }
+        })->select('id');
 
         return Inertia::render('TeacherDashboard', [
             'stats' => [
                 'kelas' => (clone $rooms)->count(),
                 'siswa' => AnggotaKelas::query()->whereIn('kelas_mapel_id', $roomIds)->where('status', 'diterima')->distinct()->count('siswa_id'),
-                'pending' => AnggotaKelas::query()->whereIn('kelas_mapel_id', $ownedIds)->where('status', 'pending')->count(),
+                'pending' => AnggotaKelas::query()->whereIn('kelas_mapel_id', $reviewableIds)->where('status', 'pending')->count(),
                 'pengumpulan' => PengumpulanTugas::query()->whereHas('tugas', fn ($q) => $q->whereIn('kelas_mapel_id', $roomIds))
                     ->whereNotNull('submitted_at')->count(),
             ],
             'rooms' => $rooms->with('mapel')->withCount('tugas')->latest()->limit(6)->get(),
-            'requests' => AnggotaKelas::query()->whereIn('kelas_mapel_id', $ownedIds)->where('status', 'pending')
+            'requests' => AnggotaKelas::query()->whereIn('kelas_mapel_id', $reviewableIds)->where('status', 'pending')
                 ->with(['siswa:id,nama_lengkap', 'kelasMapel:id,nama_kelas_mapel'])->latest('requested_at')->limit(6)->get(),
         ]);
     }

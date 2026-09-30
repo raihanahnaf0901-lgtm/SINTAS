@@ -26,7 +26,7 @@ class SubjectController extends Controller
             'reviewMembers' => $user->can('reviewMembers', $kelas),
             'update' => $user->can('update', $kelas),
             'submit' => $kelas->status === 'aktif' && $user->can('submit', $kelas),
-            'viewRekap' => $user->role === 'siswa' || $user->guru?->jenis_guru === 'guru_mapel',
+            'viewRekap' => $user->can('viewRekap', $kelas),
             'isTeacher' => $user->role === 'guru',
         ];
         abort_if($section === 'anggota' && ! $permissions['isTeacher'], 403);

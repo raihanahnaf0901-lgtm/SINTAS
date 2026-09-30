@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Guru;
+use App\Models\KeanggotaanSekolah;
+use App\Models\Sekolah;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -11,6 +13,15 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class GuruFactory extends Factory
 {
+    public function inSchool(?Sekolah $sekolah = null): static
+    {
+        return $this->afterCreating(function (Guru $guru) use ($sekolah): void {
+            $school = $sekolah ?? Sekolah::factory()->create();
+            KeanggotaanSekolah::factory()->accepted()->create(['guru_id' => $guru->id, 'sekolah_id' => $school->id]);
+            $guru->unsetRelation('keanggotaanSekolah');
+        });
+    }
+
     /**
      * Define the model's default state.
      *

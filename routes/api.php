@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminSekolahController;
 use App\Http\Controllers\AnggotaKelasController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\TugasController;
@@ -7,16 +8,29 @@ use App\Http\Controllers\Auth\OtpAuthController;
 use App\Http\Controllers\JadwalController;
 use App\Http\Controllers\KelasMapelController;
 use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\MidtransWebhookController;
 use App\Http\Controllers\NotifikasiController;
+use App\Http\Controllers\PembayaranSekolahController;
 use App\Http\Controllers\PengumpulanTugasController;
 use App\Http\Controllers\PenilaianController;
 use App\Http\Controllers\RekapController;
+use App\Http\Controllers\SekolahController;
 use App\Http\Controllers\UjianController;
 use App\Http\Controllers\WhitelistGuruKelasController;
 use App\Http\Middleware\EnsureActiveAccount;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(['web', 'auth', EnsureActiveAccount::class])->group(function (): void {
+    Route::get('sekolah', [SekolahController::class, 'index']);
+    Route::post('sekolah/pilih', [SekolahController::class, 'select']);
+    Route::post('sekolah', [SekolahController::class, 'store'])->middleware('throttle:5,1');
+    Route::post('sekolah/gabung', [SekolahController::class, 'join'])->middleware('throttle:10,1');
+    Route::delete('sekolah/permintaan', [SekolahController::class, 'cancel'])->middleware('throttle:10,1');
+    Route::post('sekolah/{sekolah}/pembayaran', [PembayaranSekolahController::class, 'store'])->middleware('throttle:5,1');
+    Route::post('pembayaran-sekolah/{pembayaran}/sinkronisasi', [PembayaranSekolahController::class, 'synchronize'])->middleware('throttle:10,1');
+    Route::get('admin-sekolah', [AdminSekolahController::class, 'index']);
+    Route::patch('admin-sekolah/anggota/{anggota}', [AdminSekolahController::class, 'review']);
+    Route::patch('admin-sekolah/guru/{guru}', [AdminSekolahController::class, 'updateTeacher']);
     Route::get('dashboard', [DashboardController::class, 'index']);
     Route::get('master-data', [MasterDataController::class, 'index']);
     Route::post('mapel', [MasterDataController::class, 'mapel']);
@@ -57,3 +71,5 @@ Route::prefix('v1')->middleware(['web', 'auth', EnsureActiveAccount::class])->gr
         Route::put('rekap/{rekap}/komponen/{komponen}/manual', [RekapController::class, 'manual']);
     });
 });
+
+Route::post('payments/midtrans/notification', MidtransWebhookController::class)->middleware('throttle:120,1');
